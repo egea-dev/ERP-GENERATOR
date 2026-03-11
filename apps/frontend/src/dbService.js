@@ -79,5 +79,266 @@ export const dbService = {
         } catch (e) {
             console.error("Fallo general en log:", e);
         }
+    },
+
+    async getArticulos() {
+        if (!supabase) return [];
+        const { data, error } = await supabase
+            .from('articulos')
+            .select('*')
+            .order('fecha_creacion', { ascending: false })
+            .limit(100);
+        if (error) {
+            console.error("Error cargando artículos:", error);
+            return [];
+        }
+        return data;
+    },
+
+    async saveArticulo(artData) {
+        if (!supabase) throw new Error("Supabase no configurado");
+        const { data, error } = await supabase
+            .from('articulos')
+            .insert([artData]);
+        if (error) throw error;
+        return data;
+    },
+
+    // --- DIRECTORIOS (URLGen) ---
+    async saveDirectorio(dirData) {
+        if (!supabase) throw new Error("Supabase no configurado");
+        const { data, error } = await supabase
+            .from('directorios_proyectos')
+            .insert([dirData]);
+        if (error) throw error;
+        return data;
+    },
+
+    async getDirectorios() {
+        if (!supabase) return [];
+        const { data, error } = await supabase
+            .from('directorios_proyectos')
+            .select('*')
+            .order('fecha_creacion', { ascending: false })
+            .limit(20);
+        if (error) {
+            console.error("Error cargando directorios:", error);
+            return [];
+        }
+        return data;
+    },
+
+    async getCounts() {
+        if (!supabase) return { articles: 0, dirs: 0, logs: 0 };
+        const [art, dir, log] = await Promise.all([
+            supabase.from('articulos').select('*', { count: 'exact', head: true }),
+            supabase.from('directorios_proyectos').select('*', { count: 'exact', head: true }),
+            supabase.from('system_logs').select('*', { count: 'exact', head: true })
+        ]);
+        return {
+            articles: art.count || 0,
+            dirs: dir.count || 0,
+            logs: log.count || 0
+        };
+    },
+
+    // --- BACKOFFICE (Admin only) ---
+    async getAllLogs() {
+        if (!supabase) return [];
+        // Intento 1: Con JOIN (requiere FK en DB)
+        const { data, error } = await supabase
+            .from('system_logs')
+            .select(`
+                *,
+                profiles:user_id (full_name)
+            `)
+            .order('created_at', { ascending: false })
+            .limit(100);
+
+        if (error) {
+            console.warn("Fallo JOIN en logs, reintentando sin perfiles...", error.message);
+            // Intento 2: Sin JOIN (por si no han ejecutado el SQL de relación)
+            const { data: data2, error: error2 } = await supabase
+                .from('system_logs')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(100);
+
+            if (error2) {
+                console.error("Error total cargando logs:", error2);
+                return [];
+            }
+            return data2;
+        }
+        return data;
+    },
+
+    async getProfilesWithRoles() {
+        if (!supabase) return [];
+        const { data, error } = await supabase
+            .from('profiles')
+            .select(`
+                id,
+                full_name,
+                created_at,
+                user_roles (role)
+            `);
+        if (error) {
+            console.error("Error cargando perfiles:", error);
+            return [];
+        }
+        return data;
+    },
+
+    // --- TICKETS OPERATIVOS ---
+    async getTickets() {
+        if (!supabase) return [];
+        const { data, error } = await supabase
+            .from('operativo_tickets')
+            .select(`
+                *,
+                profiles:user_id (full_name)
+            `)
+            .order('created_at', { ascending: false });
+        if (error) {
+            console.error("Error cargando tickets:", error);
+            return [];
+        }
+        return data;
+    },
+
+    async saveTicket(ticketData) {
+        if (!supabase) throw new Error("Supabase no configurado");
+        const { data, error } = await supabase
+            .from('operativo_tickets')
+            .insert([ticketData]);
+        if (error) throw error;
+        return data;
+    },
+
+    async updateTicketStatus(ticketId, nuevoEstado) {
+        if (!supabase) throw new Error("Supabase no configurado");
+        const updates = {
+            estado: nuevoEstado,
+            updated_at: new Date().toISOString()
+        };
+
+        if (nuevoEstado === 'Resuelto') {
+            updates.resuelto_at = new Date().toISOString();
+        }
+
+        const { data, error } = await supabase
+            .from('operativo_tickets')
+            .update(updates)
+            .eq('id', ticketId);
+        if (error) throw error;
+        return data;
+    },
+
+    async updateTicketPriority(ticketId, nuevaPrioridad) {
+        if (!supabase) throw new Error("Supabase no configurado");
+        const { data, error } = await supabase
+            .from('operativo_tickets')
+            .update({
+                prioridad: nuevaPrioridad,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', ticketId);
+        if (error) throw error;
+        return data;
+    },
+
+    async assignTicket(ticketId, tecnicoId, notas) {
+        if (!supabase) throw new Error("Supabase no configurado");
+        const { data, error } = await supabase
+            .from('operativo_tickets')
+            .update({
+                asignado_a: tecnicoId,
+                notas_admin: notas,
+                estado: 'En proceso',
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', ticketId);
+        if (error) throw error;
+        return data;
+    },
+
+    async saveMasterDiagnosis(ticketId, diagData) {
+        if (!supabase) throw new Error("Supabase no configurado");
+        const { user } = await this.getCurrentSession();
+        const { data, error } = await supabase
+            .from('operativo_tickets')
+            .update({
+                ...diagData,
+                estado: 'Diagnosticado',
+                diagnosticado_at: new Date().toISOString(),
+                diagnosticado_por: user.id,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', ticketId);
+        if (error) throw error;
+        return data;
+    },
+
+    async saveKnowledge(knowledgeData) {
+        if (!supabase) throw new Error("Supabase no configurado");
+        const { user } = await this.getCurrentSession();
+        const { data, error } = await supabase
+            .from('operativo_knowledge')
+            .insert([{ ...knowledgeData, creado_por: user.id }]);
+        if (error) throw error;
+        return data;
+    },
+
+    async addTicketLog(ticketId, tipo, contenido) {
+        if (!supabase) throw new Error("Supabase no configurado");
+        const { user } = await this.getCurrentSession();
+        const { data, error } = await supabase
+            .from('ticket_activity_log')
+            .insert([{
+                ticket_id: ticketId,
+                user_id: user.id,
+                tipo,
+                contenido
+            }]);
+        if (error) throw error;
+        return data;
+    },
+
+    async getTicketLogs(ticketId) {
+        if (!supabase) return [];
+        const { data, error } = await supabase
+            .from('ticket_activity_log')
+            .select(`
+                *,
+                profiles:user_id (full_name)
+            `)
+            .eq('ticket_id', ticketId)
+            .order('created_at', { ascending: true });
+        if (error) {
+            console.error("Error cargando logs de ticket:", error);
+            return [];
+        }
+        return data;
+    },
+
+    async getMyAssignedTickets() {
+        if (!supabase) return [];
+        const { user } = await this.getCurrentSession();
+        if (!user) return [];
+
+        const { data, error } = await supabase
+            .from('operativo_tickets')
+            .select(`
+                *,
+                profiles:user_id (full_name)
+            `)
+            .eq('asignado_a', user.id)
+            .order('created_at', { ascending: false });
+        if (error) {
+            console.error("Error cargando mis tickets asignados:", error);
+            return [];
+        }
+        return data;
     }
 };
