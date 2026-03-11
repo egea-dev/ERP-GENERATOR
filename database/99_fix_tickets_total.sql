@@ -38,6 +38,23 @@ BEGIN
         ALTER TABLE public.operativo_tickets ADD COLUMN diagnosticado_por UUID REFERENCES public.profiles(id);
     END IF;
 
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='operativo_tickets' AND column_name='asignado_a') THEN
+        ALTER TABLE public.operativo_tickets ADD COLUMN asignado_a UUID REFERENCES public.profiles(id);
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='operativo_tickets' AND column_name='notas_admin') THEN
+        ALTER TABLE public.operativo_tickets ADD COLUMN notas_admin TEXT;
+    END IF;
+
+    -- Columnas de Gestión Temporal
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='operativo_tickets' AND column_name='resuelto_at') THEN
+        ALTER TABLE public.operativo_tickets ADD COLUMN resuelto_at TIMESTAMPTZ;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='operativo_tickets' AND column_name='updated_at') THEN
+        ALTER TABLE public.operativo_tickets ADD COLUMN updated_at TIMESTAMPTZ DEFAULT NOW();
+    END IF;
+
     -- Columna de Número de Ticket (TK-1000)
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='operativo_tickets' AND column_name='num_ticket') THEN
         ALTER TABLE public.operativo_tickets ADD COLUMN num_ticket INT GENERATED ALWAYS AS IDENTITY (START WITH 1000);
