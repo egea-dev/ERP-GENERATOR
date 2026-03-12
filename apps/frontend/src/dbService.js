@@ -13,27 +13,8 @@ const supabase = supabaseUrl && supabaseAnonKey
     ? createClient(supabaseUrl, supabaseAnonKey)
     : null;
 
-// Cliente Admin para gestión de usuarios (requiere Service Role Key)
-const supabaseServiceKey = import.meta.env.VITE_SUPABASE_SERVICE_KEY || '';
-const supabaseAdmin = supabaseUrl && supabaseServiceKey
-    ? createClient(supabaseUrl, supabaseServiceKey, {
-        auth: {
-            persistSession: false,
-            autoRefreshToken: false,
-            detectSessionInUrl: false,
-            storage: {
-                getItem: () => null,
-                setItem: () => {},
-                removeItem: () => {},
-            }
-        }
-    })
-    : null;
-
-/**
- * CAPA DE SERVICIO (BaaS Decoupling)
- * El front-end solo consulta estos métodos. Nunca debe exportarse 'supabase' directamente.
- */
+// CAPA DE SERVICIO (BaaS Decoupling)
+// El front-end solo consulta estos métodos. Nunca debe exportarse 'supabase' directamente.
 
 export const dbService = {
     // --- AUTENTICACIÓN ---
@@ -389,18 +370,7 @@ export const dbService = {
                 throw error;
             }
             if (!data || data.length === 0) {
-                if (supabaseAdmin) {
-                    console.warn("RLS block Diagnosis! Auto-forcing update with Admin Key...");
-                    const { data: adminData, error: adminErr } = await supabaseAdmin.from('operativo_tickets').update(p).eq('id', ticketId).select();
-                    if (adminErr) {
-                        if (adminErr.message && adminErr.message.includes('Invalid API key')) {
-                            throw new Error("Clave Maestra Inválida. Tienes puesta la clave 'anon' en lugar de la 'service_role' (VITE_SUPABASE_SERVICE_KEY). Cámbiala en .env.");
-                        }
-                        throw adminErr;
-                    }
-                    if (adminData && adminData.length > 0) return adminData;
-                }
-                throw new Error("Permiso denegado por RLS al guardar. Ejecuta 99_fix_tickets_total.sql en Supabase.");
+                throw new Error("Permiso denegado por RLS al guardar. Las políticas de Supabase impiden esta actualización para el usuario actual.");
             }
             return data;
         };
