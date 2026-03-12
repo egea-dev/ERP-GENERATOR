@@ -8,19 +8,27 @@ const ingestRouter = require('./routes/ingest');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Middleware
+// Middleware de Seguridad e Instrumentación
 app.use(cors({
-    origin: '*', // Permitir todos los orígenes para facilitar la conexión con Vercel/Tailscale
+    origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    credentials: true,
+    optionsSuccessStatus: 200
 }));
-app.use(express.json({ limit: '10mb' }));
 
-// Logger de peticiones
+// Logger de peticiones (Debe estar ANTES de las rutas)
 app.use((req, res, next) => {
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    console.log(`>>> [${new Date().toISOString()}] ${req.method} ${req.url}`);
+    console.log('Headers:', JSON.stringify(req.headers, null, 2));
     next();
 });
+
+// Manejo manual de preflight (OPTIONS) por si el middleware falla
+app.options('*', cors());
+
+// Parsing de JSON (Debe estar ANTES de las rutas)
+app.use(express.json({ limit: '10mb' }));
 
 // Routes
 app.use('/api/chat', chatRouter);
