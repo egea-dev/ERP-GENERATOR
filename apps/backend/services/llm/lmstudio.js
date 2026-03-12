@@ -12,6 +12,7 @@ class LMStudioProvider extends LLMProvider {
             baseURL: process.env.LMSTUDIO_URL || 'http://localhost:1234/v1',
             apiKey: 'lm-studio', // El valor no importa para LM Studio local
         });
+        console.log(`[LMStudio] Cliente inicializado con baseURL: ${this.client.baseURL}`);
         this.defaultModel = process.env.LMSTUDIO_DEFAULT_MODEL || 'local-model';
     }
 
@@ -29,7 +30,8 @@ class LMStudioProvider extends LLMProvider {
                 if (content) yield content;
             }
         } catch (error) {
-            console.error('LM Studio Stream Error:', error);
+            console.error('[LMStudio] Stream Error:', error.message);
+            if (error.status) console.error(`[LMStudio] HTTP Status: ${error.status}`);
             throw error;
         }
     }
