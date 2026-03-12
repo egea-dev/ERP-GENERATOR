@@ -31,7 +31,7 @@ const ChatInput = ({ onSend, disabled, useRag, onToggleRag }) => {
         reader.onload = async (event) => {
             const content = event.target.result;
             try {
-                const response = await fetch('http://localhost:3001/api/chat/ingest', {
+                const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'}/api/chat/ingest`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
