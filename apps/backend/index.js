@@ -8,19 +8,22 @@ const ingestRouter = require('./routes/ingest');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Middleware de Seguridad e Instrumentación
-app.use(cors({
-    origin: '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-    credentials: true,
-    optionsSuccessStatus: 200
-}));
+// Middleware de Seguridad e Instrumentación (MANUAL CORS FORCED)
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, X-Requested-With');
+    
+    // Si es una petición OPTIONS, respondemos inmediatamente con 200
+    if (req.method === 'OPTIONS') {
+        return res.sendStatus(200);
+    }
+    next();
+});
 
-// Logger de peticiones (Debe estar ANTES de las rutas)
+// Logger de peticiones
 app.use((req, res, next) => {
     console.log(`>>> [${new Date().toISOString()}] ${req.method} ${req.url}`);
-    console.log('Headers:', JSON.stringify(req.headers, null, 2));
     next();
 });
 
