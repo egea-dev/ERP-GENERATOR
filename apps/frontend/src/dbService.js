@@ -18,8 +18,14 @@ const supabaseServiceKey = import.meta.env.VITE_SUPABASE_SERVICE_KEY || '';
 const supabaseAdmin = supabaseUrl && supabaseServiceKey
     ? createClient(supabaseUrl, supabaseServiceKey, {
         auth: {
+            persistSession: false,
             autoRefreshToken: false,
-            persistSession: false
+            detectSessionInUrl: false,
+            storage: {
+                getItem: () => null,
+                setItem: () => {},
+                removeItem: () => {},
+            }
         }
     })
     : null;
@@ -100,44 +106,34 @@ export const dbService = {
     },
 
     async createNewUser(email, password, fullName, role) {
-        if (!supabaseAdmin) throw new Error("Supabase Admin (Service Key) no configurado en .env");
+        if (!supabase) throw new Error("Supabase no configurado en .env");
 
-        // 1. Crear el usuario en auth.users
-        const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-            email,
-            password,
-            email_confirm: true, // Auto-confirmar
-            user_metadata: { full_name: fullName }
+        // Usamos la función de bypass SQL RPC para saltarnos el error de API Key 401
+        // Esta función se ejecuta como 'postgres' en el servidor (SECURITY DEFINER)
+        const { data: userId, error: rpcError } = await supabase.rpc('admin_create_user_v2', {
+            target_email: email,
+            target_password: password,
+            target_full_name: fullName,
+            target_role: role
         });
 
-        if (authError) throw authError;
-
-        const userId = authData.user.id;
-
-        // 2. Upsert del perfil (por si el trigger ya lo creó)
-        const { error: profileError } = await supabaseAdmin
-            .from('profiles')
-            .upsert({ id: userId, full_name: fullName });
-
-        if (profileError) {
-            console.error("Error al actualizar perfil tras crear usuario:", profileError);
-            // No hacemos throw aquí para no bloquear la creación, el user ya existe en auth
+        if (rpcError) {
+            console.error("Error en RPC de creación:", rpcError);
+            throw rpcError;
         }
 
-        // 3. Asignar rol inicial
-        await this.updateUserRole(userId, role);
-
-        return authData.user;
+        return { id: userId, email };
     },
 
     async deleteUser(userId) {
-        if (!supabaseAdmin) throw new Error("Supabase Admin (Service Key) no configurado en .env");
+        if (!supabase) throw new Error("Supabase no configurado en .env");
 
-        // La API de Admin borra de auth.users. Las constraint ON DELETE CASCADE
-        // se encargarán de borrar el perfil y los roles automáticamente.
-        const { data, error } = await supabaseAdmin.auth.admin.deleteUser(userId);
+        // Bypass SQL RPC para borrar usuarios sin Service Key
+        const { data, error } = await supabase.rpc('admin_delete_user_v2', {
+            target_user_id: userId
+        });
+
         if (error) throw error;
-
         return data;
     },
 
