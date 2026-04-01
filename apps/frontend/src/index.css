@@ -1,24 +1,28 @@
 :root {
-  --bg: #111111;
-  --bg2: #1a1a1a;
-  --bg3: #222222;
-  --br: #333333;
-  --br2: #444444;
-  --tx: #ffffff;
-  --tx2: #e0e0e0;
-  --tx3: #b0b0b0;
-  --acc: #f0c040;
-  --acc-rgb: 240, 192, 64;
-  --acc-hv: #fada70;
-  --acc2: #2196f3;
-  --acc2-hv: #64b5f6;
-  --red: #ff5252;
-  --red-bg: rgba(255, 82, 82, 0.1);
-  --green: #4caf50;
-  --mono: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
-  --sans: 'system-ui', -apple-system, sans-serif;
   color-scheme: dark;
 }
+
+:root.light {
+  color-scheme: light;
+}
+
+:root.light body {
+  background: var(--bg);
+  color: var(--tx);
+}
+
+:root.light .card,
+:root.light .hub-card,
+:root.light .login-card,
+:root.light .panel,
+:root.light .l-it {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+:root.light .hub-card:hover {
+  box-shadow: 0 10px 20px rgba(0,0,0,0.12);
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
   background: var(--bg);

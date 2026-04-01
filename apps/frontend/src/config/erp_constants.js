@@ -24,9 +24,8 @@ export const FAMILIAS = [
   { codigo: "PLAD", desc: "PLAIDS" },
   { codigo: "PVAL", desc: "PAVIMENTO Y ALFOMBRAS" },
   { codigo: "RDAP", desc: "RODAPIE" },
-  { codigo: "RELLE", desc: "RELLENOS" },
+  { codigo: "RLLN", desc: "RELLENOS" },
   { codigo: "RIBA", desc: "RIELES Y BARRAS" },
-  { codigo: "RLLN", desc: "RELLENOS (2)" },
   { codigo: "RVST", desc: "REVESTIMIENTO" },
   { codigo: "SLLA", desc: "SILLAS" },
   { codigo: "SOFA", desc: "SOFAS" },
@@ -62,8 +61,8 @@ export const TIPOS = [
   { codigo: "CAM", desc: "CAMINO MESA", familia: "MNTL", idTipo: ["tamano"] },
   { codigo: "SRV", desc: "SERVILLETA", familia: "MNTL", idTipo: ["tamano"] },
   { codigo: "PLD", desc: "PLAID", familia: "PLAD", idTipo: ["tamano"] },
-  { codigo: "RLL", desc: "RELLENO COJIN", familia: "RELLE", idTipo: ["tamano"] },
-  { codigo: "RLLN", desc: "RELLENOS", familia: "RELLE", idTipo: ["tamano"] },
+  { codigo: "RLL", desc: "RELLENO COJIN", familia: "RLLN", idTipo: ["tamano"] },
+  { codigo: "RLLN", desc: "RELLENOS", familia: "RLLN", idTipo: ["tamano"] },
   { codigo: "PAP", desc: "PAPEL PARED", familia: "RVST", idTipo: ["tamano"] },
   { codigo: "VNL", desc: "VINILO", familia: "RVST", idTipo: ["tamano"] },
   { codigo: "MES", desc: "MESA", familia: "MLBR", idTipo: ["tamano"] },
@@ -128,7 +127,7 @@ export const KW = {
     { kw: ["pavimento", "pavimentos", "suelo", "tarima", "parquet", "baldosa", "ceramica"], cod: "PAVB" },
     { kw: ["plaid", "plaids", "manta sofa", "mantita"], cod: "PLAD" },
     { kw: ["rodapie", "rodapies", "zocalo"], cod: "RDAP" },
-    { kw: ["relleno", "rellenos", "fibra", "guata", "almohada", "almohadas"], cod: "RELLE" },
+    { kw: ["relleno", "rellenos", "fibra", "guata", "almohada", "almohadas"], cod: "RLLN" },
     { kw: ["riel", "rieles", "barra cortina", "barras cortina", "soporte cortina", "anilla"], cod: "RIBA" },
     { kw: ["revestimiento", "papel pared", "vinilo", "papel pintado", "tapiz pared"], cod: "RVST" },
     { kw: ["silla", "sillas", "banqueta", "banquetas", "taburete", "taburetes"], cod: "SLLA" },
@@ -171,8 +170,8 @@ export const KW = {
     { kw: ["camino de mesa", "camino mesa"], cod: "CAM", fam: "MNTL" },
     { kw: ["mantel", "manteles"], cod: "MNT", fam: "MNTL" },
     { kw: ["plaid", "plaids", "manta sofa"], cod: "PLD", fam: "PLAD" },
-    { kw: ["fibra", "guata"], cod: "FBR", fam: "RELLE" },
-    { kw: ["relleno", "rellenos", "almohada", "almohadas"], cod: "RLL", fam: "RELLE" },
+    { kw: ["fibra", "guata"], cod: "FBR", fam: "RLLN" },
+    { kw: ["relleno", "rellenos", "almohada", "almohadas"], cod: "RLL", fam: "RLLN" },
     { kw: ["vinilo"], cod: "VNL", fam: "RVST" },
     { kw: ["papel pared", "papel pintado", "tapiz"], cod: "PAP", fam: "RVST" },
     { kw: ["taburete", "taburetes"], cod: "TAB", fam: "SLLA" },
@@ -333,4 +332,235 @@ export function buildRef(familia, tipo, variante, ancho, alto, coleccion, modelo
   else if (idTipo === "tamano") id = ancho && alto ? pad2(ancho) + pad2(alto) : "";
   else if (idTipo === "modelo") id = (coleccion || "") + (modelo || "") + (color || "");
   return (familia + tipo + id).toUpperCase();
+}
+
+// ─── GENERADOR DE TARIFAS ──────────────────────────────────────────────────────
+
+const TIPO_MAP = {
+  'rollo': 'ROL',
+  'metraje': 'MET',
+  'metro': 'MET',
+  'visillo': 'VIS',
+  'cortina': 'CRT',
+  'suelo': 'SUE',
+  'alfombra': 'ALF',
+  'panel': 'PAN',
+};
+
+export function extractTipo(articulo) {
+  if (!articulo) return null;
+  const normalized = norm(articulo).toLowerCase();
+  for (const [key, abbrev] of Object.entries(TIPO_MAP)) {
+    if (normalized.includes(key)) {
+      return abbrev;
+    }
+  }
+  return null;
+}
+
+export function cleanArticulo(articulo) {
+  if (!articulo) return '';
+  let cleaned = articulo
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .trim();
+  return cleaned;
+}
+
+function getConsonants(str) {
+  const clean = (str || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase();
+  const consonants = clean.replace(/[^A-ZÑ]/g, '');
+  return consonants;
+}
+
+export function formatAncho(ancho) {
+  if (ancho === undefined || ancho === null || ancho === '') return '';
+  const str = String(ancho).replace(',', '.');
+  const num = parseFloat(str);
+  if (isNaN(num)) return '';
+  if (num < 10) return String(Math.round(num * 100));
+  return String(Math.round(num));
+}
+
+const TARIFA_GENERIC_WORDS = ['TELA', 'ROLLO', 'METRAJE'];
+const TARIFA_MATERIAL_WORDS = new Set([
+  'CO', 'PES', 'VI', 'PC', 'PA', 'PP', 'LI', 'CV', 'PL', 'PAN', 'WO', 'FR',
+  'WADD', 'EMBR', 'LIN', 'ORGANIC', 'RECYCLE', 'RECYCLED', 'RECYCL'
+]);
+const TARIFA_JOINER_WORDS = new Set(['A', 'AN', 'AND', 'D', 'DE', 'DEL', 'DES', 'DU', 'EL', 'EN', 'ET', 'LA', 'LE', 'LES']);
+const TARIFA_MODIFIER_WORDS = new Set([
+  'FR', 'OUTDOOR', 'INDOOR', 'INTERIOR', 'EXTERIOR', 'PLAIN', 'RECYCLE',
+  'RECYCLED', 'REFLET', 'SHEER', 'VELVET'
+]);
+
+function normalizeTarifaText(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase();
+}
+
+function stripTarifaGenericWords(value) {
+  return TARIFA_GENERIC_WORDS.reduce(
+    (acc, word) => acc.replace(new RegExp(`\\b${word}\\b`, 'g'), ' '),
+    normalizeTarifaText(value)
+  ).replace(/\s+/g, ' ').trim();
+}
+
+function tokenizeTarifaName(value) {
+  return stripTarifaGenericWords(value)
+    .replace(/[^A-Z0-9%]+/g, ' ')
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter(Boolean);
+}
+
+function isCompositionToken(token) {
+  return /^[0-9]+%$/.test(token)
+    || /^EMBR[A-Z0-9]*$/.test(token)
+    || TARIFA_MATERIAL_WORDS.has(token)
+    || token === '&';
+}
+
+function isVariantToken(token) {
+  return /^[A-Z]?\d{3,5}[A-Z]?$/.test(token)
+    || /^\d{1,2}$/.test(token)
+    || /^[A-Z]\d{1,2}$/.test(token);
+}
+
+function looksTechnicalTarifaName(value) {
+  const stripped = stripTarifaGenericWords(value);
+  return /^[A-Z]{2,5}[./_-]\d/.test(stripped) || /^[A-Z]{2,5}\d/.test(stripped);
+}
+
+function buildTarifaIdentity(value) {
+  const stripped = stripTarifaGenericWords(value);
+  if (!stripped) {
+    return { baseCompact: '', duplicateKey: '', variantKey: '' };
+  }
+
+  if (looksTechnicalTarifaName(stripped)) {
+    const technical = stripped.replace(/[^A-Z0-9]/g, '');
+    return { baseCompact: technical, duplicateKey: technical, variantKey: '' };
+  }
+
+  let tokens = tokenizeTarifaName(stripped);
+  while (tokens.length && (isCompositionToken(tokens[0]) || /^\d+$/.test(tokens[0]) || TARIFA_JOINER_WORDS.has(tokens[0]))) {
+    tokens.shift();
+  }
+
+  if (!tokens.length) {
+    const fallback = stripped.replace(/[^A-Z0-9]/g, '');
+    return { baseCompact: fallback, duplicateKey: fallback, variantKey: '' };
+  }
+
+  const variantTokens = [];
+  while (tokens.length > 1 && isVariantToken(tokens[tokens.length - 1])) {
+    variantTokens.unshift(tokens.pop());
+  }
+
+  const modifierTokens = [];
+  while (tokens.length > 1 && TARIFA_MODIFIER_WORDS.has(tokens[tokens.length - 1])) {
+    modifierTokens.unshift(tokens.pop());
+  }
+
+  const baseTokens = tokens.filter((token) => !TARIFA_JOINER_WORDS.has(token));
+  const normalizedBaseTokens = baseTokens.length ? baseTokens : tokens;
+  const baseCompact = normalizedBaseTokens.join('');
+  const modifierSource = variantTokens.length
+    ? variantTokens.join('')
+    : modifierTokens.length
+      ? modifierTokens[modifierTokens.length - 1]
+      : '';
+
+  let variantKey = '';
+  if (modifierSource) {
+    const cleanModifier = modifierSource.replace(/[^A-Z0-9]/g, '');
+    if (/^[A-Z]\d+/.test(cleanModifier)) variantKey = `${cleanModifier[0]}${cleanModifier.match(/\d/)[0]}`;
+    else if (/^\d+$/.test(cleanModifier)) variantKey = cleanModifier.slice(-2).padStart(2, '0');
+    else variantKey = cleanModifier.slice(0, 2).padEnd(2, 'X');
+  }
+
+  const duplicateKey = [baseCompact, modifierTokens.join(''), variantTokens.join('')]
+    .filter(Boolean)
+    .join('|');
+
+  return { baseCompact, duplicateKey, variantKey };
+}
+
+export function cleanTarifaNombre(value) {
+  return buildTarifaIdentity(value).baseCompact;
+}
+
+export function normalizeTarifaDuplicateKey(value) {
+  return buildTarifaIdentity(value).duplicateKey;
+}
+
+export function resolveTarifaTipo(value) {
+  const normalized = String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase();
+
+  if (normalized.includes('ROLLO')) return 'R';
+  if (normalized.includes('METRAJE')) return 'M';
+  return 'X';
+}
+
+export function formatTarifaAncho(ancho) {
+  const normalized = formatAncho(ancho);
+  if (!normalized) return '000';
+  return normalized.padStart(3, '0').slice(-3);
+}
+
+export function generateTarifaRef(_familia, descripcion, ancho) {
+  const tipo = resolveTarifaTipo(descripcion);
+  const identity = buildTarifaIdentity(descripcion || '');
+  const nombreNormalizado = identity.baseCompact;
+  const duplicateKey = identity.duplicateKey;
+  const nombre5 = identity.variantKey
+    ? `${nombreNormalizado.slice(0, 3).padEnd(3, 'X')}${identity.variantKey}`
+    : nombreNormalizado.slice(0, 5).padEnd(5, 'X');
+  const nombre3 = nombreNormalizado.slice(0, 3).padEnd(3, 'X');
+  const ancho3 = formatTarifaAncho(ancho);
+  const referenciaBase = `TELA${tipo}${nombre5}${ancho3}`;
+
+  return {
+    tipo,
+    nombre_normalizado: nombreNormalizado,
+    duplicate_key: duplicateKey,
+    nombre5,
+    nombre3,
+    ancho3,
+    serie: `${tipo}${nombre5}`,
+    clave_descripcion: `TELA-${tipo}-${nombre5}-${ancho3}`,
+    referencia: referenciaBase,
+  };
+}
+
+export function detectColumn(headers, field) {
+  const fieldLower = field.toLowerCase();
+  const mappings = {
+    familia: ['familia', 'fam', 'family'],
+    articulo: ['articulo', 'art', 'artículo', 'nombre', 'nombre tela', 'descripcion de producto', 'descripcion', 'descripción', 'producto', 'name', 'description', 'desc'],
+    ancho: ['ancho', 'ancho tapicería', 'ancho cm', 'medida', 'width', 'ancho tapiceria'],
+    alto: ['alto', 'alto cm', 'largo', 'longitud', 'height', 'largo cm'],
+    precio: ['precio', 'pvp', 'precio venta', 'p.v.p', 'price'],
+    descripcion: ['descripcion de producto', 'descripcion', 'descripción', 'nombre tela', 'nombre', 'producto', 'detail', 'detalle', 'description', 'desc', 'name']
+  };
+  
+  const candidates = mappings[fieldLower] || [fieldLower];
+  
+  for (let i = 0; i < headers.length; i++) {
+    const h = String(headers[i] || '').toLowerCase().trim();
+    if (candidates.some(c => h.includes(c))) {
+      return i;
+    }
+  }
+  return -1;
 }

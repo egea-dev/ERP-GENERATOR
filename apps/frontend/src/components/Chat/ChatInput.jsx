@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { buildApiBaseUrl } from '../../apiConfig';
 
 /**
  * Input de texto para el chat.
@@ -31,9 +32,13 @@ const ChatInput = ({ onSend, disabled, useRag, onToggleRag }) => {
         reader.onload = async (event) => {
             const content = event.target.result;
             try {
-                const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'}/api/chat/ingest`, {
+                const token = localStorage.getItem('erp_token');
+                const response = await fetch(buildApiBaseUrl('/api/chat/ingest'), {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+                    },
                     body: JSON.stringify({
                         content,
                         source: `Frontend: ${file.name}`,

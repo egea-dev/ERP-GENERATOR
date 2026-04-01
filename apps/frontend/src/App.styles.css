@@ -2,15 +2,25 @@
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0 }
 
+/* Variables CSS unificadas para ambos temas */
 :root {
+  /* Modo Oscuro (dark) - Valores por defecto */
   --bg: #0f0f0f;
+  --bg2: #1a1a1a;
+  --bg3: #222222;
   --s1: #161616;
   --s2: #1e1e1e;
   --br: #2a2a2a;
   --br2: #333;
   --acc: #f0c040;
+  --acc-rgb: 240, 192, 64;
+  --acc-hv: #fada70;
   --acc2: #e8a820;
+  --acc2-hv: #f0c060;
   --red: #e05252;
+  --err: #e05252;
+  --warn: #ffb300;
+  --red-bg: rgba(224, 82, 82, 0.1);
   --green: #52c97e;
   --blue: #5290e0;
   --tx: #ffffff;
@@ -18,7 +28,62 @@
   --tx3: #b0b0b0;
   --mono: 'IBM Plex Mono', monospace;
   --sans: 'IBM Plex Sans', sans-serif;
+  --fg: #ffffff;
+  --fg2: #e0e0e2;
 }
+
+/* Modo Claro (light) */
+:root.light {
+  --bg: #f8f6f3;
+  --bg2: #ffffff;
+  --bg3: #f0ede8;
+  --s1: #ffffff;
+  --s2: #f5f3ef;
+  --br: #e5e2dc;
+  --br2: #d8d4ce;
+  --acc: #b8960c;
+  --acc-rgb: 184, 150, 12;
+  --acc-hv: #d4aa0d;
+  --acc2: #a6850a;
+  --acc2-hv: #b8960c;
+  --red: #c62828;
+  --err: #c62828;
+  --warn: #f9a825;
+  --red-bg: rgba(198, 40, 40, 0.08);
+  --green: #2e7d32;
+  --blue: #1565c0;
+  --tx: #2d2a26;
+  --tx2: #4a4540;
+  --tx3: #7a756e;
+  --fg: #2d2a26;
+  --fg2: #4a4540;
+}
+
+:root.light body { background: var(--bg); color: var(--tx) }
+
+:root.light .card,
+:root.light .panel,
+:root.light .hub-card { box-shadow: 0 2px 8px rgba(0,0,0,0.08) }
+
+/* Forzar fondo en elementos con estilos inline problemáticos en modo claro */
+:root.light .card,
+:root.light .main,
+:root.light .panel.active,
+:root.light .p-content {
+  background-color: var(--s1) !important;
+}
+
+:root.light input,
+:root.light textarea,
+:root.light select {
+  background-color: var(--s2) !important;
+  border-color: var(--br) !important;
+  color: var(--tx) !important;
+}
+
+/* Scrollbar en modo claro */
+:root.light ::-webkit-scrollbar-track { background: var(--s1) }
+:root.light ::-webkit-scrollbar-thumb { background: var(--br2); }
 
 body { background: var(--bg); color: var(--tx); font-family: var(--sans); min-height: 100vh }
 
@@ -133,60 +198,171 @@ body { background: var(--bg); color: var(--tx); font-family: var(--sans); min-he
 .rp-sub { font-family: var(--mono); font-size: 9px; color: var(--tx3); letter-spacing: .06em; margin-top: 2px }
 
 .sec-lbl {
-  font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
-  color: var(--tx3); margin-bottom: 8px; margin-top: 20px
+  font-family: var(--mono); 
+  font-size: 12px; 
+  letter-spacing: .12em; 
+  text-transform: uppercase;
+  color: var(--acc); 
+  margin-bottom: 12px; 
+  margin-top: 24px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sec-lbl::before {
+  content: '';
+  display: inline-block;
+  width: 4px;
+  height: 16px;
+  background: var(--acc);
+  border-radius: 2px;
 }
 
 .chip-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 5px;
+  gap: 10px;
+  margin-top: 8px;
 }
 
 .chip {
-  padding: 4px 10px; border-radius: 4px; border: 1px solid var(--br2); background: var(--s2);
-  font-family: var(--mono); font-size: 10px; font-weight: 600; color: var(--tx2); cursor: pointer;
-  transition: all .12s; display: flex; align-items: center; gap: 4px;
+  padding: 10px 16px; border-radius: 10px; border: 2px solid var(--br2); background: var(--s2);
+  font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--tx2); cursor: pointer;
+  transition: all .2s ease; display: flex; align-items: center; gap: 8px;
 }
 
-.chip:hover { border-color: var(--acc); color: var(--acc); }
+.chip:hover { 
+  border-color: var(--acc); 
+  color: var(--acc);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
 
-.chip.on { background: rgba(240, 192, 64, 0.1); border-color: var(--acc); color: var(--acc); }
+.chip.on { 
+  background: rgba(240, 192, 64, 0.15); 
+  border-color: var(--acc); 
+  color: var(--acc);
+  box-shadow: 0 4px 15px rgba(240, 192, 64, 0.25);
+}
 
-.chip-sub { font-weight: 400; font-size: 9px; opacity: 0.5; }
+.chip-sub { font-weight: 400; font-size: 10px; opacity: 0.6; }
 
-.size-row { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; margin-top: 6px }
+/* ModoClaro: Forzar fondos en elementos problemáticos */
+:root.light .card, :root.light .panel, :root.light .hub-card { background-color: var(--s1) !important; }
+:root.light .p-content, :root.light .panel.active .p-content { background-color: var(--bg) !important; }
+:root.light .ref-box { background-color: var(--s2) !important; }
+:root.light .h-row, :root.light .stat { background-color: var(--s1) !important; }
+:root.light .size-row, :root.light .mod-row { background-color: var(--bg) !important; }
+:root.light input, :root.light textarea, :root.light select { background-color: var(--s2) !important; border-color: var(--br) !important; color: var(--tx) !important; }
+:root.light ::-webkit-scrollbar-track { background: var(--s1) }
+:root.light ::-webkit-scrollbar-thumb { background: var(--br2); }
+:root.light .dash-wrap { background: var(--bg) !important; }
+:root.light .dash-hdr { background: var(--s1) !important; }
+:root.light .dash-body { background: var(--br) !important; }
+:root.light .panel { background: var(--bg) !important; }
+:root.light .panel.collapsed { background: var(--s1) !important; }
+:root.light .p-hdr { background: var(--s2) !important; }
+:root.light .h-list .h-row { background: var(--s1) !important; }
+:root.light .chip { background: var(--s2) !important; }
 
-.size-field { display: flex; flex-direction: column; gap: 5px }
+.size-row { 
+  display: flex; 
+  align-items: flex-end; 
+  gap: 16px; 
+  flex-wrap: wrap; 
+  margin-top: 8px;
+  padding: 16px;
+  background: var(--s2);
+  border-radius: 12px;
+  border: 2px solid var(--br);
+}
 
-.size-lbl { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; color: var(--tx3); text-transform: uppercase }
+.size-field { 
+  display: flex; 
+  flex-direction: column; 
+  gap: 8px;
+  min-width: 100px;
+}
+
+.size-lbl { 
+  font-family: var(--mono); 
+  font-size: 11px; 
+  letter-spacing: .1em; 
+  color: var(--tx3); 
+  text-transform: uppercase 
+}
 
 .size-in {
-  width: 78px; background: var(--s2); border: 1px solid var(--br2); border-radius: 5px;
-  padding: 9px 10px; font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--acc);
-  outline: none; text-align: center; transition: border-color .15s
+  width: 100%; 
+  background: var(--bg); 
+  border: 2px solid var(--br2); 
+  border-radius: 8px;
+  padding: 12px 14px; 
+  font-family: var(--mono); 
+  font-size: 20px; 
+  font-weight: 700; 
+  color: var(--acc);
+  outline: none; 
+  text-align: center; 
+  transition: all .2s ease;
 }
 
-.size-in:focus { border-color: var(--acc) }
+.size-in:focus { 
+  border-color: var(--acc);
+  box-shadow: 0 0 0 4px rgba(240, 192, 64, 0.2);
+}
 
 .size-x { font-family: var(--mono); font-size: 16px; color: var(--tx3); padding-bottom: 9px }
 
 .size-preview { font-family: var(--mono); font-size: 12px; color: var(--green); padding-bottom: 9px }
 
-.mod-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 6px }
-
-.mod-field { display: flex; flex-direction: column; gap: 5px }
-
-.mod-lbl { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; color: var(--tx3); text-transform: uppercase }
-
-.mod-in {
-  background: var(--s2); border: 1px solid var(--br2); border-radius: 5px;
-  padding: 8px 10px; font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--acc);
-  outline: none; text-transform: uppercase; transition: border-color .15s
+.mod-row { 
+  display: flex; 
+  gap: 16px; 
+  flex-wrap: wrap; 
+  margin-top: 8px;
+  padding: 16px;
+  background: var(--s2);
+  border-radius: 12px;
+  border: 2px solid var(--br);
 }
 
-.mod-in:focus { border-color: var(--acc) }
+.mod-field { 
+  display: flex; 
+  flex-direction: column; 
+  gap: 8px;
+  min-width: 80px;
+}
+
+.mod-lbl { 
+  font-family: var(--mono); 
+  font-size: 11px; 
+  letter-spacing: .1em; 
+  color: var(--tx3); 
+  text-transform: uppercase 
+}
+
+.mod-in {
+  background: var(--bg); 
+  border: 2px solid var(--br2); 
+  border-radius: 8px;
+  padding: 10px 12px; 
+  font-family: var(--mono); 
+  font-size: 14px; 
+  font-weight: 700; 
+  color: var(--acc);
+  outline: none; 
+  text-transform: uppercase; 
+  transition: all .2s ease;
+  min-width: 70px;
+}
+
+.mod-in:focus { 
+  border-color: var(--acc);
+  box-shadow: 0 0 0 4px rgba(240, 192, 64, 0.2);
+}
 
 .alert {
   padding: 9px 13px; border-radius: 5px; font-family: var(--mono); font-size: 11px;
@@ -326,7 +502,7 @@ body { background: var(--bg); color: var(--tx); font-family: var(--sans); min-he
 
 /* PANEL DASHBOARD-PREMIUM POLISH */
 .dash-wrap { display: flex; flex-direction: column; height: 100vh; background: #0a0a0a; color: var(--tx); overflow: hidden; }
-.dash-hdr { height: 56px; border-bottom: 1px solid var(--br); display: flex; align-items: center; justify-content: space-between; padding: 0 24px; background: rgba(22, 22, 22, 0.8); backdrop-filter: blur(10px); flex-shrink: 0; z-index: 1000; }
+.dash-hdr { height: 56px; border-bottom: 1px solid var(--br); display: flex; align-items: center; justify-content: space-between; padding: 0 24px; background: var(--s1); backdrop-filter: blur(10px); flex-shrink: 0; z-index: 1000; }
 .dash-body { display: flex; flex: 1; overflow: hidden; background: #000; gap: 1px; align-items: stretch; justify-content: center; }
 .panel { display: flex; flex-direction: column; transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); background: var(--bg); overflow: hidden; position: relative; height: 100%; }
 .panel.active { flex: 1.2; min-width: 400px; background: var(--bg); }
@@ -394,4 +570,36 @@ body { background: var(--bg); color: var(--tx); font-family: var(--sans); min-he
   animation: pulse-red 2s infinite;
   border-color: var(--red) !important;
   color: var(--red) !important;
+}
+
+/* ModoClaro: componentes adicionales */
+:root.light .ref-box {
+  background: var(--s2) !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+}
+
+/* ModoClaro: forzar colores de fondo en elementos con hardcoded colors */
+:root.light [style*="background: #161616"],
+:root.light [style*="background:#161616"],
+:root.light [style*="background: #1e1e1e"],
+:root.light [style*="background:#1e1e1e"],
+:root.light [style*="background: #111"],
+:root.light [style*="background:#111"],
+:root.light [style*="background: #333"],
+:root.light [style*="background:#333"] {
+  background-color: var(--s1) !important;
+}
+
+:root.light [style*="color: #fff"],
+:root.light [style*="color:#fff"],
+:root.light [style*="color: #ffffff"],
+:root.light [style*="color:#ffffff"],
+:root.light [style*="color: #000"],
+:root.light [style*="color:#000"] {
+  color: var(--tx) !important;
+}
+
+:root.light [style*="border: 1px solid #333"],
+:root.light [style*="border:1px solid #333"] {
+  border-color: var(--br) !important;
 }

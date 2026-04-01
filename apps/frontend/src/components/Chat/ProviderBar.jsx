@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { buildApiBaseUrl } from '../../apiConfig';
 
 /**
  * Barra de selección de proveedores con indicación de disponibilidad.
@@ -11,7 +12,10 @@ const ProviderBar = ({ selected, onSelect }) => {
         let mounted = true;
         const fetchProviders = async () => {
             try {
-                const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'}/api/chat/providers`);
+                const token = localStorage.getItem('erp_token');
+                const res = await fetch(buildApiBaseUrl('/api/chat/providers'), {
+                    headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+                });
                 const data = await res.json();
                 if (mounted) {
                     setProviders(data);

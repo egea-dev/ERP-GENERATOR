@@ -1,19 +1,41 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { Routes, Route } from "react-router-dom";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Login from "./components/Login";
 import { useAuth } from "./context/AuthContext";
-import DirectoryGenerator from './components/DirectoryGenerator';
-import Backoffice from './components/Backoffice';
 import TicketModal from './components/TicketModal';
-import ChatPanel from './components/Chat/ChatPanel';
 import { dbService } from './dbService';
 
 // Importaciones Modulares
 import "./App.styles.css";
 import { FAMILIAS } from "./config/erp_constants";
-import ViewCrear from "./components/RefGen/ViewCrear";
-import ViewHist from "./components/RefGen/ViewHist";
+
+// Componentes con carga diferida (lazy loading)
+const DirectoryGenerator = lazy(() => import('./components/DirectoryGenerator'));
+const Backoffice = lazy(() => import('./components/Backoffice'));
+const ChatPanel = lazy(() => import('./components/Chat/ChatPanel'));
+const ViewCrear = lazy(() => import('./components/RefGen/ViewCrear'));
+const ViewHist = lazy(() => import('./components/RefGen/ViewHist'));
+const ViewTarifas = lazy(() => import('./components/Tarifas/ViewTarifas'));
+const CalculadoraEnvios = lazy(() => import('./components/Envios/CalculadoraEnvios'));
+
+// Componente de loading
+function LoadingSpinner({ size = 24 }) {
+  return (
+    <div style={{ 
+      display: 'flex', 
+      justifyContent: 'center', 
+      alignItems: 'center', 
+      padding: 40,
+      color: 'var(--fg2)'
+    }}>
+      <svg width={size} height={size} viewBox="0 0 24 24" style={{ animation: 'spin 1s linear infinite' }}>
+        <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+        <circle cx="12" cy="12" r="10" stroke="var(--acc)" strokeWidth="3" fill="none" strokeDasharray="31.4 31.4" strokeLinecap="round" />
+      </svg>
+    </div>
+  );
+}
 
 // ─── COMPONENTES DE ESTRUCTURA ────────────────────────────────────────────────
 
@@ -47,24 +69,30 @@ function Panel({ id, active, title, icon, children, onToggle, headerRight }) {
   );
 }
 
-function GeneradorNombres({ tab, setTab, db, addArt }) {
-  function loadArt(a) {
-    setTab("crear");
-    setTimeout(() => window.dispatchEvent(new CustomEvent("__load", { detail: a })), 40);
-  }
+function GeneradorNombres({ tab, setTab, db, addArt, onLoadArt }) {
   return (
     <div className="app">
-      {tab === "crear" && <ViewCrear db={db} addArt={addArt} />}
-      {tab === "hist" && <ViewHist db={db} loadArt={loadArt} />}
+      {tab === "crear" && <ViewCrear db={db} addArt={addArt} onLoadArt={onLoadArt} />}
+      {tab === "hist" && <ViewHist db={db} loadArt={onLoadArt} />}
     </div>
   );
 }
 
 function Dashboard() {
   const { user, role, logout } = useAuth();
-  const [panels, setPanels] = useState({ refgen: false, urlgen: false, chat: false });
+  const [panels, setPanels] = useState({ refgen: false, urlgen: false, chat: false, tarifas: false, envios: false });
+  const [panelConfig, setPanelConfig] = useState([]);
+  const [enabledPanels, setEnabledPanels] = useState({});
   const [showAdmin, setShowAdmin] = useState(false);
   const [showTickets, setShowTickets] = useState(false);
+  const [theme, setTheme] = useState(() => localStorage.getItem('erp_theme') || 'dark');
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('light', theme === 'light');
+    localStorage.setItem('erp_theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark');
 
   // States compartidos
   const [refTab, setRefTab] = useState("crear");
@@ -73,7 +101,52 @@ function Dashboard() {
   const [db, setDb] = useState([]);
   const [pendingTickets, setPendingTickets] = useState(0);
   const [clientTickets, setClientTickets] = useState([]);
+  const [loadedArt, setLoadedArt] = useState(null);
   const addArt = (a) => setDb(p => [a, ...p]);
+  const loadArt = (a) => {
+    setLoadedArt(a);
+    setRefTab("crear");
+  };
+
+  // Cargar configuración de paneles
+  useEffect(() => {
+    async function loadPanelConfig() {
+      try {
+        const config = await dbService.getPanelConfig();
+        setPanelConfig(config || []);
+        const enabled = {};
+        const visible = {};
+        (config || []).forEach(cfg => {
+          enabled[cfg.panel_id] = cfg.enabled;
+          visible[cfg.panel_id] = (cfg.visible_roles || []).includes(role);
+        });
+        setEnabledPanels(prev => {
+          const merged = { ...prev };
+          Object.keys(enabled).forEach(k => {
+            merged[k] = enabled[k] && visible[k];
+          });
+          return merged;
+        });
+      } catch (err) {
+        console.warn('No se pudo cargar la configuración de paneles:', err);
+      }
+    }
+    if (role) loadPanelConfig();
+  }, [role]);
+
+  const refreshPanelConfig = async () => {
+    try {
+      const config = await dbService.getPanelConfig();
+      setPanelConfig(config || []);
+      const merged = {};
+      (config || []).forEach(cfg => {
+        merged[cfg.panel_id] = cfg.enabled && (cfg.visible_roles || []).includes(role);
+      });
+      setEnabledPanels(merged);
+    } catch (err) {
+      console.warn('Error refrescando paneles:', err);
+    }
+  };
 
   useEffect(() => {
     async function init() {
@@ -105,7 +178,7 @@ function Dashboard() {
         if (t.estado === 'Resuelto' && t.resuelto_at) {
           const resTime = new Date(t.resuelto_at);
           if ((now - resTime) / (1000 * 60 * 60) >= 24) {
-            dbService.updateTicketStatus(t.id, 'Archivado');
+            await dbService.updateTicketStatus(t.id, 'Archivado');
             t.estado = 'Archivado';
           }
         }
@@ -113,7 +186,7 @@ function Dashboard() {
       setClientTickets(myOwnTickets.filter(t => t.estado !== 'Archivado'));
     }
     init();
-  }, [showAdmin, backTab, user]);
+  }, [user?.id]);
 
   const toggle = (k) => setPanels(p => ({ ...p, [k]: !p[k] }));
 
@@ -149,6 +222,15 @@ function Dashboard() {
               {showAdmin ? 'CERRAR ADMIN' : 'BACKOFFICE'}
             </button>
           )}
+          <button className="nav-btn" onClick={toggleTheme} 
+            style={{ border: '1px solid var(--br)', fontSize: 9, padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 6 }}
+            title={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}>
+            {theme === 'dark' ? (
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+            )}
+          </button>
           <button className="nav-btn" onClick={logout} style={{ border: '1px solid var(--br)', fontSize: 9 }}>CERRAR SESIÓN</button>
         </div>
       </header>
@@ -158,6 +240,7 @@ function Dashboard() {
       {showAdmin ? (
         <div className="dash-body" style={{ overflowY: 'auto', display: 'block', background: 'var(--bg)' }}>
           <div style={{ padding: '20px 40px', borderBottom: '1px solid var(--br)', display: 'flex', gap: 20, background: 'var(--s1)' }}>
+            <button className={`nav-btn ${backTab === 'modules' ? 'on' : ''}`} onClick={() => setBackTab("modules")}>Módulos</button>
             <button className={`nav-btn ${backTab === 'logs' ? 'on' : ''}`} onClick={() => setBackTab("logs")}>Auditoría</button>
             <button className={`nav-btn ${backTab === 'users' ? 'on' : ''}`} onClick={() => setBackTab("users")}>Usuarios</button>
             <button className={`nav-btn ${backTab === 'stats' ? 'on' : ''}`} onClick={() => setBackTab("stats")}>Analíticas</button>
@@ -167,11 +250,14 @@ function Dashboard() {
             <button className="nav-btn" onClick={() => setShowAdmin(false)} style={{ marginLeft: 'auto', color: 'var(--tx2)' }}>VOLVER AL DASHBOARD</button>
           </div>
           <div style={{ padding: 40 }}>
-            <Backoffice tab={backTab} setTab={setBackTab} />
+            <Suspense fallback={<LoadingSpinner />}>
+              <Backoffice tab={backTab} setTab={setBackTab} onModulesChange={refreshPanelConfig} />
+            </Suspense>
           </div>
         </div>
       ) : (
-        <div className="dash-body">
+          <div className="dash-body">
+          {enabledPanels.refgen !== false && (
           <Panel id="refgen" active={panels.refgen} onToggle={() => toggle("refgen")} title="REFGEN"
             icon={<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>}
             headerRight={
@@ -185,9 +271,13 @@ function Dashboard() {
                 <div style={{ marginLeft: 5, fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--tx3)', opacity: 0.6 }}><span>{db.length}</span></div>
               </div>
             }>
-            <GeneradorNombres tab={refTab} setTab={setRefTab} db={db} addArt={addArt} />
+            <Suspense fallback={<LoadingSpinner />}>
+              <GeneradorNombres tab={refTab} setTab={setRefTab} db={db} addArt={addArt} onLoadArt={loadArt} />
+            </Suspense>
           </Panel>
+          )}
 
+          {enabledPanels.urlgen !== false && (
           <Panel id="urlgen" active={panels.urlgen} onToggle={() => toggle("urlgen")} title="URLGEN"
             icon={<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>}
             headerRight={
@@ -200,13 +290,38 @@ function Dashboard() {
                 </button>
               </div>
             }>
-            <DirectoryGenerator tab={urlTab} setTab={setUrlTab} />
+            <Suspense fallback={<LoadingSpinner />}>
+              <DirectoryGenerator tab={urlTab} setTab={setUrlTab} />
+            </Suspense>
           </Panel>
+          )}
 
+          {enabledPanels.chat !== false && (
           <Panel id="chat" active={panels.chat} onToggle={() => toggle("chat")} title="CONSULTAS IA"
             icon={<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>}>
-            <ChatPanel />
+            <Suspense fallback={<LoadingSpinner />}>
+              <ChatPanel />
+            </Suspense>
           </Panel>
+          )}
+
+          {enabledPanels.tarifas !== false && (
+          <Panel id="tarifas" active={panels.tarifas} onToggle={() => toggle("tarifas")} title="TARIFAS"
+            icon={<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>}>
+            <Suspense fallback={<LoadingSpinner />}>
+              <ViewTarifas />
+            </Suspense>
+          </Panel>
+          )}
+
+          {enabledPanels.envios !== false && (
+          <Panel id="envios" active={panels.envios} onToggle={() => toggle("envios")} title="ENVÍOS"
+            icon={<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>}>
+            <Suspense fallback={<LoadingSpinner />}>
+              <CalculadoraEnvios />
+            </Suspense>
+          </Panel>
+          )}
         </div>
       )}
     </div>

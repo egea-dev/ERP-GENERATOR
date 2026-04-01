@@ -4,7 +4,7 @@ import { FAMILIAS, TIPOS, VARIANTES, KW, norm, analyzeText, buildRef, decodeRef,
 import { dbService } from '../../dbService';
 import { useAuth } from '../../context/AuthContext';
 
-export default function ViewCrear({ db, addArt }) {
+export default function ViewCrear({ db, addArt, onLoadArt }) {
   const { user } = useAuth();
   const [text, setText] = useState("");
   const [familia, setFamilia] = useState("");
@@ -18,19 +18,60 @@ export default function ViewCrear({ db, addArt }) {
   const [saved, setSaved] = useState(false);
   const [showFam, setShowFam] = useState(false);
   const [showVar, setShowVar] = useState(false);
+  const [bulkPreview, setBulkPreview] = useState([]);
+  const [showPreview, setShowPreview] = useState(false);
+  const [columnOptions, setColumnOptions] = useState([]);
+  const [showColumnSelector, setShowColumnSelector] = useState(false);
+  const [rawExcelData, setRawExcelData] = useState([]);
+  const [selectedColumn, setSelectedColumn] = useState(null);
+  const [autoDetectedColumn, setAutoDetectedColumn] = useState(null);
   const ref_ = useRef();
 
+  const detectDescriptionColumn = (headers) => {
+    const keywords = ['desc', 'descripcion', 'description', 'nombre', 'name', 'articulo', 'article', 'producto', 'product', 'item'];
+    for (let i = 0; i < headers.length; i++) {
+      const h = String(headers[i]).toLowerCase().trim();
+      if (keywords.some(k => h.includes(k))) {
+        return i;
+      }
+    }
+    return -1;
+  };
+
+  const processExcelData = (data, colIdx) => {
+    const bulkItems = data.slice(1).filter(row => row[colIdx]).map(row => {
+      const desc = String(row[colIdx]);
+      const analysis = analyzeText(desc);
+      const ref = buildRef(
+        analysis.familia, analysis.tipo, analysis.variante,
+        analysis.ancho, analysis.alto, null, null, null,
+        resolveIdTipo(null, analysis.ancho, analysis.alto, analysis.variante, false)
+      );
+      return { desc, ...analysis, ref };
+    });
+    setBulkPreview(bulkItems);
+    setShowPreview(true);
+  };
+
+  const handleColumnSelect = (colIdx) => {
+    setSelectedColumn(colIdx);
+    processExcelData(rawExcelData, colIdx);
+    setShowColumnSelector(false);
+  };
+
   useEffect(() => {
-    const h = (e) => {
-      const a = e.detail;
-      setText(a.desc || ""); setFamilia(a.familia || ""); setTipo(a.tipo || "");
-      setVariante(a.variante || ""); setAncho(a.ancho || ""); setAlto(a.alto || "");
-      setColeccion(a.coleccion || ""); setModelo(a.modelo || ""); setColor(a.color || "");
-      setSaved(false);
-    };
-    window.addEventListener("__load", h);
-    return () => window.removeEventListener("__load", h);
-  }, []);
+    if (!onLoadArt) return;
+    setText(onLoadArt.desc || "");
+    setFamilia(onLoadArt.familia || "");
+    setTipo(onLoadArt.tipo || "");
+    setVariante(onLoadArt.variante || "");
+    setAncho(onLoadArt.ancho || "");
+    setAlto(onLoadArt.alto || "");
+    setColeccion(onLoadArt.coleccion || "");
+    setModelo(onLoadArt.modelo || "");
+    setColor(onLoadArt.color || "");
+    setSaved(false);
+  }, [onLoadArt]);
 
   const isCode = useMemo(() => {
     const u = text.trim().toUpperCase();
@@ -139,6 +180,65 @@ export default function ViewCrear({ db, addArt }) {
     setAncho(""); setAlto(""); setColeccion(""); setModelo(""); setColor("");
     setSaved(false); ref_.current?.focus();
   }
+
+  const exportToExcel = (items) => {
+    const exportData = items.map(item => ({
+      REFERENCIA: item.ref || '',
+      DESCRIPCION: item.desc || '',
+      FAMILIA: item.familia || '',
+      TIPO: item.tipo || '',
+      VARIANTE: item.variante || '',
+      ANCHO: item.ancho || '',
+      ALTO: item.alto || ''
+    }));
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Referencias");
+    const date = new Date().toISOString().split("T")[0];
+    XLSX.writeFile(wb, `referencias_generadas_${date}.xlsx`);
+  };
+
+  const handleBulkConfirm = async () => {
+    const validItems = bulkPreview.filter(item => item.ref);
+    for (const item of validItems) {
+      try {
+        await dbService.saveArticulo({
+          referencia: item.ref,
+          descripcion: item.desc,
+          familia: item.familia,
+          tipo: item.tipo,
+          variante: item.variante || null,
+          ancho: item.ancho || null,
+          alto: item.alto || null,
+          creado_por: user?.id
+        });
+      } catch (e) {
+        console.error("Error guardando artículo:", e);
+      }
+      addArt({
+        id: Math.random().toString(36).substr(2, 9),
+        ref: item.ref,
+        desc: item.desc,
+        familia: item.familia,
+        tipo: item.tipo,
+        variante: item.variante,
+        ancho: item.ancho,
+        alto: item.alto,
+        fecha: new Date().toISOString().split("T")[0],
+        user: user?.email || "usuario",
+      });
+    }
+    dbService.logSystemAction('BULK_IMPORT', 'REFGEN', { count: validItems.length });
+    exportToExcel(bulkPreview);
+    setShowPreview(false);
+    setBulkPreview([]);
+    alert(`${validItems.length} artículos guardados y exportados correctamente.`);
+  };
+
+  const handleBulkCancel = () => {
+    setShowPreview(false);
+    setBulkPreview([]);
+  };
 
   return (
     <div className="main">
@@ -335,36 +435,20 @@ export default function ViewCrear({ db, addArt }) {
               const wsname = wb.SheetNames[0];
               const ws = wb.Sheets[wsname];
               const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
-
-              const bulkItems = data.slice(1).filter(row => row[0]).map(row => {
-                const desc = String(row[0]);
-                const analysis = analyzeText(desc);
-                const ref = buildRef(
-                  analysis.familia, analysis.tipo, analysis.variante,
-                  analysis.ancho, analysis.alto, null, null, null,
-                  resolveIdTipo(null, analysis.ancho, analysis.alto, analysis.variante, false)
-                );
-                return { desc, ...analysis, ref };
-              });
-
-              if (window.confirm(`¿Cargar ${bulkItems.length} artículos detectados automáticamente?`)) {
-                bulkItems.forEach(item => {
-                  addArt({
-                    id: Math.random().toString(36).substr(2, 9),
-                    ref: item.ref,
-                    desc: item.desc,
-                    familia: item.familia,
-                    tipo: item.tipo,
-                    variante: item.variante,
-                    ancho: item.ancho,
-                    alto: item.alto,
-                    fecha: new Date().toISOString().split("T")[0],
-                    user: "usuario",
-                  });
-                });
-                dbService.insertLog('BULK_IMPORT', 'REFGEN', { count: bulkItems.length });
-                alert(`${bulkItems.length} artículos añadidos. Revisa el historial.`);
+              
+              if (data.length === 0) {
+                alert("El archivo está vacío");
+                return;
               }
+              
+              const headers = data[0];
+              const colIdx = detectDescriptionColumn(headers);
+              
+              setRawExcelData(data);
+              setColumnOptions(headers.map((h, i) => ({ index: i, name: String(h) || `Columna ${i + 1}` })));
+              setAutoDetectedColumn(colIdx >= 0 ? colIdx : null);
+              setSelectedColumn(colIdx >= 0 ? colIdx : null);
+              setShowColumnSelector(true);
             };
             reader.readAsBinaryString(file);
           }} />
@@ -379,6 +463,185 @@ export default function ViewCrear({ db, addArt }) {
               <div key={a.id} className="sim-chip"
                 onClick={() => { setText(a.ref); setSaved(false); }}>{a.ref}</div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {showPreview && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 1000
+        }} onClick={() => setShowPreview(false)}>
+          <div style={{
+            background: 'var(--bg)', borderRadius: 12, padding: 24, maxWidth: '95%', width: '95%',
+            maxHeight: '85vh', overflow: 'hidden', display: 'flex', flexDirection: 'column',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.5)'
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexShrink: 0 }}>
+              <div className="stitle" style={{ margin: 0, whiteSpace: 'nowrap' }}>PREVIEW: {bulkPreview.length} ARTÍCULOS</div>
+              <button onClick={() => setShowPreview(false)} style={{
+                background: 'transparent', border: 'none', color: 'var(--fg)', fontSize: 24, cursor: 'pointer'
+              }}>×</button>
+            </div>
+            
+            <div style={{ marginBottom: 20, fontSize: 13, color: 'var(--fg2)' }}>
+              Los siguientes artículos serán guardados y exportados. Revisa las referencias generadas.
+            </div>
+
+            <div style={{ flex: 1, overflow: 'auto', border: '1px solid var(--br)', borderRadius: 8, marginBottom: 24, minHeight: 200 }}>
+              <table style={{ minWidth: 700, width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <thead>
+                  <tr style={{ background: 'var(--bg2)', borderBottom: '2px solid var(--br)' }}>
+                    <th style={{ padding: '10px 8px', textAlign: 'left', color: 'var(--fg2)', width: 50 }}>#</th>
+                    <th style={{ padding: '10px 8px', textAlign: 'left', color: 'var(--fg2)', width: 120 }}>REFERENCIA</th>
+                    <th style={{ padding: '10px 8px', textAlign: 'left', color: 'var(--fg2)', minWidth: 200 }}>DESCRIPCIÓN</th>
+                    <th style={{ padding: '10px 8px', textAlign: 'left', color: 'var(--fg2)', width: 80 }}>FAMILIA</th>
+                    <th style={{ padding: '10px 8px', textAlign: 'left', color: 'var(--fg2)', width: 80 }}>TIPO</th>
+                    <th style={{ padding: '10px 8px', textAlign: 'left', color: 'var(--fg2)', width: 80 }}>VARIANTE</th>
+                    <th style={{ padding: '10px 8px', textAlign: 'left', color: 'var(--fg2)', width: 100 }}>MEDIDAS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bulkPreview.slice(0, 20).map((item, idx) => (
+                    <tr key={idx} style={{ borderBottom: '1px solid var(--br)', background: idx % 2 ? 'var(--bg2)' : 'transparent' }}>
+                      <td style={{ padding: '8px', color: 'var(--fg2)' }}>{idx + 1}</td>
+                      <td style={{ padding: '8px', fontWeight: 600, color: item.ref ? 'var(--acc)' : 'var(--err)' }}>
+                        {item.ref || 'SIN REF'}
+                      </td>
+                      <td style={{ padding: '8px', minWidth: 200, maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {item.desc}
+                      </td>
+                      <td style={{ padding: '8px' }}>{item.familia || '-'}</td>
+                      <td style={{ padding: '8px' }}>{item.tipo || '-'}</td>
+                      <td style={{ padding: '8px' }}>{item.variante || '-'}</td>
+                      <td style={{ padding: '8px' }}>
+                        {item.ancho && item.alto ? `${item.ancho}×${item.alto}` : '-'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            
+            {bulkPreview.length > 20 && (
+              <div style={{ marginBottom: 20, fontSize: 13, color: 'var(--fg2)', textAlign: 'center' }}>
+                ... y {bulkPreview.length - 20} artículos más
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', flexShrink: 0 }}>
+              <button className="btn btn-g" onClick={handleBulkCancel}>CANCELAR</button>
+              <button className="btn btn-p" onClick={handleBulkConfirm}>
+                CONFIRMAR Y EXPORTAR EXCEL
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showColumnSelector && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 1000
+        }} onClick={() => setShowColumnSelector(false)}>
+          <div style={{
+            background: 'var(--bg)', borderRadius: 16, padding: 32, maxWidth: 600, width: '92%',
+            maxHeight: '85vh', overflow: 'hidden', display: 'flex', flexDirection: 'column',
+            boxShadow: '0 25px 80px rgba(0,0,0,0.6)'
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ textAlign: 'center', marginBottom: 28, flexShrink: 0 }}>
+              <div style={{ 
+                width: 64, height: 64, borderRadius: '50%', 
+                background: 'linear-gradient(135deg, var(--acc), #e6a73c)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                margin: '0 auto 16px'
+              }}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                  <line x1="16" y1="13" x2="8" y2="13"></line>
+                  <line x1="16" y1="17" x2="8" y2="17"></line>
+                  <line x1="10" y1="9" x2="8" y2="9"></line>
+                </svg>
+              </div>
+              <div className="stitle" style={{ marginBottom: 8 }}>IMPORTAR DESDE EXCEL</div>
+              <div style={{ fontSize: 14, color: 'var(--fg2)', wordBreak: 'break-word' }}>
+                Selecciona la columna que contiene las <strong style={{ color: 'var(--acc)' }}>descripciones de artículos</strong>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 24, maxHeight: '50vh', overflow: 'auto', paddingRight: 8 }}>
+              {columnOptions.map((col) => {
+                const isAutoDetected = autoDetectedColumn === col.index;
+                const isSelected = selectedColumn === col.index;
+                return (
+                  <div 
+                    key={col.index}
+                    onClick={() => setSelectedColumn(col.index)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 16,
+                      padding: '16px 20px', marginBottom: 10,
+                      borderRadius: 12, border: '2px solid',
+                      borderColor: isSelected ? 'var(--acc)' : isAutoDetected ? 'var(--warn)' : 'var(--br)',
+                      background: isSelected ? 'rgba(240, 192, 64, 0.12)' : isAutoDetected ? 'rgba(240, 192, 64, 0.05)' : 'var(--bg2)',
+                      cursor: 'pointer', transition: 'all 0.2s ease', flexShrink: 0
+                    }}
+                  >
+                    <div style={{
+                      width: 24, height: 24, borderRadius: '50%', border: '3px solid',
+                      borderColor: isSelected ? 'var(--acc)' : isAutoDetected ? 'var(--warn)' : 'var(--br)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      flexShrink: 0
+                    }}>
+                      {isSelected && <div style={{ width: 12, height: 12, borderRadius: '50%', background: 'var(--acc)' }} />}
+                      {isAutoDetected && !isSelected && <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--warn)' }} />}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                      <div style={{ 
+                        fontWeight: 600, fontSize: 15, 
+                        color: isSelected ? 'var(--acc)' : isAutoDetected ? 'var(--warn)' : 'var(--fg)',
+                        display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap'
+                      }}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>{col.name}</span>
+                        {isAutoDetected && <span style={{ 
+                          fontSize: 10, fontWeight: 500, 
+                          background: 'var(--warn)', color: 'var(--bg)',
+                          padding: '2px 8px', borderRadius: 10
+                        }}>AUTO</span>}
+                      </div>
+                      {rawExcelData[1] && rawExcelData[1][col.index] && (
+                        <div style={{ fontSize: 12, color: 'var(--fg2)', marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <span style={{ opacity: 0.6 }}>Ej:</span> {String(rawExcelData[1][col.index]).slice(0, 40)}
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ 
+                      fontSize: 11, color: 'var(--fg2)', 
+                      background: 'var(--bg)', padding: '4px 10px', borderRadius: 8
+                    }}>
+                      Col {col.index + 1}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{ display: 'flex', gap: 14, marginTop: 'auto', flexShrink: 0 }}>
+              <button className="btn btn-g" style={{ flex: 1, padding: '14px 20px' }} onClick={() => setShowColumnSelector(false)}>
+                CANCELAR
+              </button>
+              <button className="btn btn-p" style={{ flex: 1, padding: '14px 20px' }} onClick={() => {
+                if (selectedColumn !== null) {
+                  handleColumnSelect(selectedColumn);
+                } else {
+                  alert("Selecciona una columna");
+                }
+              }}>
+                CONTINUAR →
+              </button>
+            </div>
           </div>
         </div>
       )}

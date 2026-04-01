@@ -18,13 +18,13 @@ export function AuthProvider({ children }) {
                     setRole(userRole);
                 }
             } catch (error) {
-                console.error("Error al recuperar sesiÃ³n:", error);
+                console.error("Error al recuperar sesión:", error);
             } finally {
                 setLoading(false);
             }
         }
 
-        // Al cargar la SPA, verificamos si ya hbarÃ­a sesiÃ³n guardada
+        // Al cargar la SPA, verificamos si ya habría sesión guardada
         checkUser();
     }, []);
 
@@ -37,7 +37,7 @@ export function AuthProvider({ children }) {
             setRole(userRole);
 
             // Ejemplo: Registrar el log (Regla 3 de claude.md)
-            await dbService.insertLog('LOGIN', 'Auth', { email });
+            await dbService.logSystemAction('LOGIN', 'Auth', { email });
 
             return true;
         } catch (error) {
@@ -52,7 +52,7 @@ export function AuthProvider({ children }) {
         setLoading(true);
         try {
             if (user) {
-                await dbService.insertLog('LOGOUT', 'Auth', { email: user.email });
+                await dbService.logSystemAction('LOGOUT', 'Auth', { email: user.email });
             }
             await dbService.logout();
             setUser(null);
@@ -79,7 +79,7 @@ export function AuthProvider({ children }) {
     );
 }
 
-// Hook personalizado para usar el contexto mÃ¡s fÃ¡cilmente
+// Hook personalizado para usar el contexto más fácilmente
 export function useAuth() {
     return useContext(AuthContext);
 }

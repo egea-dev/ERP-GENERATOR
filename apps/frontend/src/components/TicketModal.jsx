@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 
 export default function TicketModal({ isOpen, onClose }) {
     const { user } = useAuth();
-    const [tab, setTab] = useState("nuevo"); // "nuevo" o "lista"
+    const [tab, setTab] = useState("nuevo");
     const [tickets, setTickets] = useState([]);
     const [titulo, setTitulo] = useState("");
     const [descripcion, setDescripcion] = useState("");
@@ -56,6 +56,14 @@ export default function TicketModal({ isOpen, onClose }) {
         }
     };
 
+    const inputStyle = {
+        background: 'var(--s2)', border: '1px solid var(--br)',
+        borderRadius: 6, padding: '12px 15px', color: 'var(--tx)',
+        outline: 'none', width: '100%'
+    };
+
+    const labelStyle = { fontSize: 10, color: 'var(--tx3)', fontWeight: 700, letterSpacing: '1px' };
+
     return (
         <div style={{
             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
@@ -64,22 +72,22 @@ export default function TicketModal({ isOpen, onClose }) {
             zIndex: 9999, padding: 20
         }}>
             <div style={{
-                background: '#161616', border: '1px solid #333',
+                background: 'var(--s1)', border: '1px solid var(--br)',
                 borderRadius: 12, width: '100%', maxWidth: 500,
                 padding: 30, position: 'relative', boxShadow: '0 20px 50px rgba(0,0,0,0.5)'
             }}>
                 <button onClick={onClose} style={{
                     position: 'absolute', top: 20, right: 20,
-                    background: 'none', border: 'none', color: '#666',
+                    background: 'none', border: 'none', color: 'var(--tx3)',
                     cursor: 'pointer', fontSize: 20
                 }}>×</button>
 
-                <div style={{ display: 'flex', gap: 20, marginBottom: 25, borderBottom: '1px solid #333' }}>
+                <div style={{ display: 'flex', gap: 20, marginBottom: 25, borderBottom: '1px solid var(--br)' }}>
                     <button
                         onClick={() => setTab("nuevo")}
                         style={{
                             background: 'none', border: 'none', padding: '10px 0',
-                            color: tab === "nuevo" ? 'var(--acc)' : '#666',
+                            color: tab === "nuevo" ? 'var(--acc)' : 'var(--tx3)',
                             fontSize: 11, fontWeight: 800, cursor: 'pointer',
                             borderBottom: tab === "nuevo" ? '2px solid var(--acc)' : 'none'
                         }}
@@ -88,7 +96,7 @@ export default function TicketModal({ isOpen, onClose }) {
                         onClick={() => setTab("lista")}
                         style={{
                             background: 'none', border: 'none', padding: '10px 0',
-                            color: tab === "lista" ? 'var(--acc)' : '#666',
+                            color: tab === "lista" ? 'var(--acc)' : 'var(--tx3)',
                             fontSize: 11, fontWeight: 800, cursor: 'pointer',
                             borderBottom: tab === "lista" ? '2px solid var(--acc)' : 'none'
                         }}
@@ -99,7 +107,7 @@ export default function TicketModal({ isOpen, onClose }) {
                     exito ? (
                         <div style={{
                             textAlign: 'center', padding: '40px 0',
-                            color: '#52c97e', fontFamily: 'var(--mono)'
+                            color: 'var(--green)', fontFamily: 'var(--mono)'
                         }}>
                             <div style={{ fontSize: 48, marginBottom: 10 }}>✓</div>
                             Ticket enviado correctamente.
@@ -107,14 +115,10 @@ export default function TicketModal({ isOpen, onClose }) {
                     ) : (
                         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                <label style={{ fontSize: 10, color: '#666', fontWeight: 700, letterSpacing: '1px' }}>RESUMEN DEL PROBLEMA</label>
+                                <label style={labelStyle}>RESUMEN DEL PROBLEMA</label>
                                 <input
                                     required
-                                    style={{
-                                        background: '#1e1e1e', border: '1px solid #333',
-                                        borderRadius: 6, padding: '12px 15px', color: '#fff',
-                                        outline: 'none'
-                                    }}
+                                    style={inputStyle}
                                     placeholder="Ej: No funciona el botón de exportar..."
                                     value={titulo}
                                     onChange={(e) => setTitulo(e.target.value)}
@@ -123,12 +127,9 @@ export default function TicketModal({ isOpen, onClose }) {
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 15 }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                    <label style={{ fontSize: 10, color: '#666', fontWeight: 700, letterSpacing: '1px' }}>PRIORIDAD</label>
+                                    <label style={labelStyle}>PRIORIDAD</label>
                                     <select
-                                        style={{
-                                            background: '#1e1e1e', border: '1px solid #333',
-                                            borderRadius: 6, padding: '10px', color: '#fff', outline: 'none'
-                                        }}
+                                        style={inputStyle}
                                         value={prioridad}
                                         onChange={(e) => setPrioridad(e.target.value)}
                                     >
@@ -138,12 +139,9 @@ export default function TicketModal({ isOpen, onClose }) {
                                     </select>
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                    <label style={{ fontSize: 10, color: '#666', fontWeight: 700, letterSpacing: '1px' }}>MÓDULO</label>
+                                    <label style={labelStyle}>MÓDULO</label>
                                     <select
-                                        style={{
-                                            background: '#1e1e1e', border: '1px solid #333',
-                                            borderRadius: 6, padding: '10px', color: '#fff', outline: 'none'
-                                        }}
+                                        style={inputStyle}
                                         value={modulo}
                                         onChange={(e) => setModulo(e.target.value)}
                                     >
@@ -156,15 +154,11 @@ export default function TicketModal({ isOpen, onClose }) {
                             </div>
 
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                <label style={{ fontSize: 10, color: '#666', fontWeight: 700, letterSpacing: '1px' }}>DESCRIPCIÓN DETALLADA</label>
+                                <label style={labelStyle}>DESCRIPCIÓN DETALLADA</label>
                                 <textarea
                                     required
                                     rows={4}
-                                    style={{
-                                        background: '#1e1e1e', border: '1px solid #333',
-                                        borderRadius: 6, padding: '12px 15px', color: '#fff',
-                                        outline: 'none', resize: 'none'
-                                    }}
+                                    style={{ ...inputStyle, resize: 'none' }}
                                     placeholder="Explica qué ha pasado o qué necesitas..."
                                     value={descripcion}
                                     onChange={(e) => setDescripcion(e.target.value)}
@@ -175,7 +169,7 @@ export default function TicketModal({ isOpen, onClose }) {
                                 type="submit"
                                 disabled={enviando}
                                 style={{
-                                    background: '#f0c040', color: '#000',
+                                    background: 'var(--acc)', color: 'var(--bg)',
                                     border: 'none', borderRadius: 6, padding: '14px',
                                     fontWeight: 800, cursor: 'pointer',
                                     letterSpacing: '1px', marginTop: 10,
@@ -192,7 +186,6 @@ export default function TicketModal({ isOpen, onClose }) {
                             <div style={{ textAlign: 'center', opacity: 0.5, padding: 40, fontSize: 13 }}>No tienes tickets activos.</div>
                         ) : (
                             tickets.map(t => {
-                                // Mapeo de estados a pasos (0-3)
                                 const steps = ["Recibido", "Analizando", "Reparando", "Solucionado"];
                                 let currentStep = 0;
                                 if (t.estado === 'Diagnosticado') currentStep = 1;
@@ -200,31 +193,29 @@ export default function TicketModal({ isOpen, onClose }) {
                                 if (t.estado === 'Resuelto') currentStep = 3;
 
                                 return (
-                                    <div key={t.id} style={{ background: '#1e1e1e', border: '1px solid #333', borderRadius: 8, padding: 15 }}>
+                                    <div key={t.id} style={{ background: 'var(--s2)', border: '1px solid var(--br)', borderRadius: 8, padding: 15 }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-                                            <div style={{ fontSize: 13, fontWeight: 700 }}>{t.titulo}</div>
-                                            <div style={{ fontSize: 9, color: '#666' }}>{new Date(t.created_at).toLocaleDateString()}</div>
+                                            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--tx)' }}>{t.titulo}</div>
+                                            <div style={{ fontSize: 9, color: 'var(--tx3)' }}>{new Date(t.created_at).toLocaleDateString()}</div>
                                         </div>
 
-                                        {/* Barra de Progreso */}
                                         <div style={{ position: 'relative', marginTop: 10, marginBottom: 25 }}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', position: 'relative', zIndex: 1 }}>
                                                 {steps.map((s, i) => (
                                                     <div key={s} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
                                                         <div style={{
                                                             width: 12, height: 12, borderRadius: '50%',
-                                                            background: i <= currentStep ? 'var(--acc)' : '#333',
+                                                            background: i <= currentStep ? 'var(--acc)' : 'var(--br)',
                                                             boxShadow: i <= currentStep ? '0 0 10px var(--acc)' : 'none',
                                                             transition: 'all 0.5s ease'
                                                         }} />
-                                                        <span style={{ fontSize: 8, fontWeight: 800, color: i <= currentStep ? 'var(--acc)' : '#666' }}>{s.toUpperCase()}</span>
+                                                        <span style={{ fontSize: 8, fontWeight: 800, color: i <= currentStep ? 'var(--acc)' : 'var(--tx3)' }}>{s.toUpperCase()}</span>
                                                     </div>
                                                 ))}
                                             </div>
-                                            {/* Línea de conexión */}
                                             <div style={{
                                                 position: 'absolute', top: 5, left: '5%', right: '5%', height: 2,
-                                                background: '#333', zIndex: 0
+                                                background: 'var(--br)', zIndex: 0
                                             }} />
                                             <div style={{
                                                 position: 'absolute', top: 5, left: '5%', width: `${(currentStep / 3) * 90}%`, height: 2,
@@ -233,7 +224,7 @@ export default function TicketModal({ isOpen, onClose }) {
                                         </div>
 
                                         {t.estado === 'Resuelto' && (
-                                            <div style={{ fontSize: 11, color: '#52c97e', textAlign: 'center', background: 'rgba(82, 201, 126, 0.05)', padding: 8, borderRadius: 4 }}>
+                                            <div style={{ fontSize: 11, color: 'var(--green)', textAlign: 'center', background: 'rgba(82, 201, 126, 0.05)', padding: 8, borderRadius: 4 }}>
                                                 ¡LISTO! La incidencia ha sido solucionada.
                                             </div>
                                         )}

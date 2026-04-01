@@ -1,4 +1,7 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
+import { buildApiBaseUrl } from '../apiConfig';
+
+const STREAM_TIMEOUT = 60000; // 60 segundos
 
 /**
  * Hook para manejar SSE streaming desde el backend.
@@ -6,6 +9,7 @@ import { useState, useCallback } from 'react';
 export const useStream = () => {
     const [isStreaming, setIsStreaming] = useState(false);
     const [error, setError] = useState(null);
+    const abortRef = useRef(null);
 
     const streamChat = useCallback(async ({
         messages,
@@ -18,13 +22,26 @@ export const useStream = () => {
         setIsStreaming(true);
         setError(null);
 
+        const controller = new AbortController();
+        abortRef.current = controller;
+
+        const timeoutId = setTimeout(() => {
+            controller.abort();
+            setError('Tiempo de espera agotado. La IA no respondió a tiempo.');
+            onError?.('Tiempo de espera agotado.');
+            setIsStreaming(false);
+        }, STREAM_TIMEOUT);
+
         try {
-            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'}/api/chat`, {
+            const token = localStorage.getItem('erp_token');
+            const response = await fetch(buildApiBaseUrl('/api/chat'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
                 },
                 body: JSON.stringify({ messages, provider, useRag }),
+                signal: controller.signal,
             });
 
             if (!response.ok) {
@@ -41,9 +58,8 @@ export const useStream = () => {
 
                 buffer += decoder.decode(value, { stream: true });
 
-                // Procesar lineas SSE
                 const lines = buffer.split('\n');
-                buffer = lines.pop(); // Mantener el resto incompleto
+                buffer = lines.pop();
 
                 for (const line of lines) {
                     if (line.startsWith('data: ')) {
@@ -58,7 +74,8 @@ export const useStream = () => {
                             }
 
                             if (data.done) {
-                                onDone && onDone(data);
+                                clearTimeout(timeoutId);
+                                onDone?.(data);
                                 setIsStreaming(false);
                                 return;
                             }
@@ -72,13 +89,28 @@ export const useStream = () => {
                     }
                 }
             }
+
+            clearTimeout(timeoutId);
         } catch (err) {
-            console.error('StreamChat Error:', err);
-            setError(err.message);
-            onError && onError(err.message);
+            clearTimeout(timeoutId);
+            if (err.name === 'AbortError') {
+                setError('Conexión cancelada.');
+                onError?.('Conexión cancelada.');
+            } else {
+                console.error('StreamChat Error:', err);
+                setError(err.message);
+                onError?.(err.message);
+            }
             setIsStreaming(false);
         }
     }, []);
 
-    return { streamChat, isStreaming, error };
+    const cancelStream = useCallback(() => {
+        if (abortRef.current) {
+            abortRef.current.abort();
+            abortRef.current = null;
+        }
+    }, []);
+
+    return { streamChat, cancelStream, isStreaming, error };
 };

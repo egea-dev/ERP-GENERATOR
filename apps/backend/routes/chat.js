@@ -1,8 +1,21 @@
 const express = require('express');
 const router = express.Router();
+const jwt = require('jsonwebtoken');
+const { JWT_SECRET } = require('../config');
 const { getAvailableProvider } = require('../services/llm/circuit-breaker');
 const { retrieve, buildRAGPrompt } = require('../services/rag/retriever');
 const LLMFactory = require('../services/llm/factory');
+
+const authenticate = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'No token provided' });
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+        if (err) return res.status(403).json({ error: 'Token inválido' });
+        req.user = user;
+        next();
+    });
+};
 
 /**
  * Helper: envía error SSE y cierra la conexión
@@ -24,7 +37,7 @@ function sseError(res, message, statusCode = 200) {
  * POST /api/chat
  * Endpoint principal con SSE streaming.
  */
-router.post('/', async (req, res) => {
+router.post('/', authenticate, async (req, res) => {
     const { messages, provider: preferredProvider, model, temperature, useRag, sessionId } = req.body;
 
     try {
@@ -87,7 +100,7 @@ router.post('/', async (req, res) => {
 /**
  * GET /api/chat/providers
  */
-router.get('/providers', async (req, res) => {
+router.get('/providers', authenticate, async (req, res) => {
     const providerNames = LLMFactory.listProviders();
     const statusPromises = providerNames.map(async name => {
         try {

@@ -1,442 +1,589 @@
-import { createClient } from '@supabase/supabase-js';
+import { buildApiUrl } from './apiConfig';
 
-// Las variables de entorno en Vite se exponen mediante import.meta.env
-// Necesitarás crear un archivo .env en la raíz del proyecto con:
-// VITE_SUPABASE_URL=tu_url_aqui
-// VITE_SUPABASE_ANON_KEY=tu_anon_key_aqui
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+// Cache con TTL y LRU eviction
+const cache = new Map();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutos
+const MAX_CACHE_SIZE = 100; // Límite máximo de entradas en cache
+const MAX_LOG_RETRIES = 3;
 
-// Inicializamos el cliente (secreto interno)
-// Si no hay variables de entorno, no estallará inmediatamente, pero avisará
-const supabase = supabaseUrl && supabaseAnonKey
-    ? createClient(supabaseUrl, supabaseAnonKey)
-    : null;
+// Cola de logs pendientes para auditoría
+let pendingLogs = [];
+let isFlushingLogs = false;
 
-// CAPA DE SERVICIO (BaaS Decoupling)
-// El front-end solo consulta estos métodos. Nunca debe exportarse 'supabase' directamente.
+function getCached(key) {
+    const cached = cache.get(key);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+        cache.delete(key);
+        cache.set(key, cached);
+        return cached.data;
+    }
+    cache.delete(key);
+    return null;
+}
+
+function setCache(key, data) {
+    if (cache.size >= MAX_CACHE_SIZE) {
+        const oldestKey = cache.keys().next().value;
+        cache.delete(oldestKey);
+    }
+    cache.set(key, { data, timestamp: Date.now() });
+}
+
+function clearCache() {
+    cache.clear();
+}
+
+// Ayudante para peticiones fetch con token, timeout y retry
+const fetchAPI = async (endpoint, options = {}, retries = 2) => {
+    const token = localStorage.getItem('erp_token');
+    const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        ...options.headers,
+    };
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+    try {
+        const response = await fetch(buildApiUrl(endpoint), {
+            ...options,
+            headers,
+            signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+            let errorData;
+            try {
+                errorData = await response.json();
+            } catch {
+                errorData = { error: `Error ${response.status}: ${response.statusText}` };
+            }
+            const requestError = new Error(errorData.error || errorData.message || `Error en la petición (${response.status})`);
+            requestError.status = response.status;
+            requestError.code = errorData.code;
+            requestError.data = errorData;
+            throw requestError;
+        }
+
+        const data = await response.json();
+
+        if (response.ok && !data && !options.skipValidation) {
+            console.warn(`Respuesta vacía para ${endpoint}`);
+        }
+
+        return data;
+    } catch (error) {
+        clearTimeout(timeoutId);
+
+        // Only retry GET requests to avoid duplicate POSTs
+        if (retries > 0 && (error.name === 'TypeError' || error.name === 'AbortError') && (!options.method || options.method === 'GET')) {
+            await new Promise(resolve => setTimeout(resolve, 1000 * (3 - retries)));
+            return fetchAPI(endpoint, options, retries - 1);
+        }
+
+        if (error.name === 'AbortError') {
+            throw new Error('Tiempo de espera agotado. Verifica tu conexión.');
+        }
+        if (error.name === 'TypeError' && error.message.includes('fetch')) {
+            throw new Error('No se pudo conectar con el servidor. Verifica tu conexión.');
+        }
+
+        throw error;
+    }
+};
+
+// Ayudante para requests con cache
+async function fetchWithCache(endpoint, options = {}, cacheKey) {
+    if (cacheKey && !options.method) {
+        const cached = getCached(cacheKey);
+        if (cached) return cached;
+    }
+    const result = await fetchAPI(endpoint, options);
+    if (cacheKey && result) {
+        setCache(cacheKey, result);
+    }
+    return result;
+}
+
+// Función para invalidar cache
+export function invalidateCache(prefix) {
+    for (const key of cache.keys()) {
+        if (key.startsWith(prefix)) {
+            cache.delete(key);
+        }
+    }
+}
+
+// Función para vaciar la cola de logs pendientes con límite de reintentos
+async function flushPendingLogs() {
+    if (isFlushingLogs || pendingLogs.length === 0) return;
+    isFlushingLogs = true;
+
+    const logsToFlush = [...pendingLogs];
+    pendingLogs = [];
+
+    try {
+        for (const log of logsToFlush) {
+            if ((log._retries || 0) >= MAX_LOG_RETRIES) continue;
+            try {
+                await fetchAPI('/data/logs', {
+                    method: 'POST',
+                    body: JSON.stringify(log)
+                });
+            } catch {
+                log._retries = (log._retries || 0) + 1;
+                pendingLogs.push(log);
+            }
+        }
+    } finally {
+        isFlushingLogs = false;
+    }
+}
 
 export const dbService = {
     // --- AUTENTICACIÓN ---
-
     async login(email, password) {
-        if (!supabase) throw new Error("Supabase no está configurado en .env");
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+        if (!email || !password) {
+            throw new Error('Email y contraseña son obligatorios');
+        }
+        const data = await fetchAPI('/auth/login', {
+            method: 'POST',
+            body: JSON.stringify({ email, password })
+        });
+        if (!data.token) {
+            throw new Error('Respuesta de autenticación inválida');
+        }
+        localStorage.setItem('erp_token', data.token);
         return data.user;
     },
 
     async logout() {
-        if (!supabase) return;
-        const { error } = await supabase.auth.signOut();
-        if (error) throw error;
+        localStorage.removeItem('erp_token');
+        clearCache();
+        pendingLogs = [];
     },
 
     async getCurrentSession() {
-        if (!supabase) return { session: null, user: null };
-        const { data: { session }, error } = await supabase.auth.getSession();
-        if (error) throw error;
-        return { session, user: session?.user || null };
+        const token = localStorage.getItem('erp_token');
+        if (!token) return { session: null, user: null };
+        try {
+            const data = await fetchAPI('/auth/me');
+            return { session: { access_token: token }, user: data.user };
+        } catch (e) {
+            localStorage.removeItem('erp_token');
+            return { session: null, user: null };
+        }
     },
 
     // --- PERFILES Y ROLES ---
-
     async getUserRole(userId) {
-        if (!supabase || !userId) return null;
-        const { data, error } = await supabase
-            .from('user_roles')
-            .select('role')
-            .eq('user_id', userId)
-            .maybeSingle();
-
-        if (error) {
-            console.error("Error obteniendo rol:", error);
-            return null;
-        }
-        return data?.role || 'user'; // Rol por defecto si no está asignado
-    },
-
-    async updateUserRole(userId, newRole) {
-        if (!supabase) throw new Error("Supabase no configurado");
-
-        // 1. Comprobar si ya existe el rol
-        const { data: existing, error: errCheck } = await supabase
-            .from('user_roles')
-            .select('id')
-            .eq('user_id', userId)
-            .maybeSingle();
-
-        if (errCheck) throw errCheck;
-
-        let res;
-        if (existing) {
-            res = await supabase
-                .from('user_roles')
-                .update({ role: newRole, assigned_at: new Date().toISOString() })
-                .eq('user_id', userId)
-                .select();
-        } else {
-            res = await supabase
-                .from('user_roles')
-                .insert([{ user_id: userId, role: newRole }])
-                .select();
-        }
-
-        if (res.error) throw res.error;
-        return res.data;
-    },
-
-    async createNewUser(email, password, fullName, role) {
-        if (!supabase) throw new Error("Supabase no configurado en .env");
-
-        // Usamos la función de bypass SQL RPC para saltarnos el error de API Key 401
-        // Esta función se ejecuta como 'postgres' en el servidor (SECURITY DEFINER)
-        const { data: userId, error: rpcError } = await supabase.rpc('admin_create_user_v2', {
-            target_email: email,
-            target_password: password,
-            target_full_name: fullName,
-            target_role: role
-        });
-
-        if (rpcError) {
-            console.error("Error en RPC de creación:", rpcError);
-            throw rpcError;
-        }
-
-        return { id: userId, email };
-    },
-
-    async deleteUser(userId) {
-        if (!supabase) throw new Error("Supabase no configurado en .env");
-
-        // Bypass SQL RPC para borrar usuarios sin Service Key
-        const { data, error } = await supabase.rpc('admin_delete_user_v2', {
-            target_user_id: userId
-        });
-
-        if (error) throw error;
-        return data;
-    },
-
-    // --- AUDITORÍA (Obligatorio según reglas) ---
-
-    async insertLog(actionType, moduleName, details = {}) {
-        if (!supabase) return;
         try {
-            const { user } = await this.getCurrentSession();
-            if (!user) return; // Si no hay usuario, no se puede loguear
-
-            const { error } = await supabase
-                .from('system_logs')
-                .insert([{
-                    user_id: user.id,
-                    action_type: actionType,
-                    module_name: moduleName,
-                    details: details
-                }]);
-
-            if (error) console.error("Error insertando log:", error);
+            const data = await fetchAPI(`/auth/role/${userId}`);
+            return data.role || 'user';
         } catch (e) {
-            console.error("Fallo general en log:", e);
+            console.warn('No se pudo obtener el rol del usuario:', e.message);
+            return 'user';
         }
     },
 
+    // --- ARTICULOS ---
     async getArticulos() {
-        if (!supabase) return [];
-        const { data, error } = await supabase
-            .from('articulos')
-            .select('*')
-            .order('fecha_creacion', { ascending: false })
-            .limit(100);
-        if (error) {
-            console.error("Error cargando artículos:", error);
-            return [];
-        }
-        return data;
+        return await fetchWithCache('/data/articulos', {}, 'articulos:all');
     },
 
     async saveArticulo(artData) {
-        if (!supabase) throw new Error("Supabase no configurado");
-        const { data, error } = await supabase
-            .from('articulos')
-            .insert([artData]);
-        if (error) throw error;
-        return data;
-    },
-
-    // --- DIRECTORIOS (URLGen) ---
-    async saveDirectorio(dirData) {
-        if (!supabase) throw new Error("Supabase no configurado");
-        const { data, error } = await supabase
-            .from('directorios_proyectos')
-            .insert([dirData]);
-        if (error) throw error;
-        return data;
-    },
-
-    async getDirectorios() {
-        if (!supabase) return [];
-        const { data, error } = await supabase
-            .from('directorios_proyectos')
-            .select('*')
-            .order('fecha_creacion', { ascending: false })
-            .limit(20);
-        if (error) {
-            console.error("Error cargando directorios:", error);
-            return [];
+        if (!artData || !artData.referencia) {
+            throw new Error('Datos de artículo inválidos');
         }
-        return data;
+        invalidateCache('articulos:');
+        return await fetchAPI('/data/articulos', {
+            method: 'POST',
+            body: JSON.stringify(artData)
+        });
     },
 
-    async getCounts() {
-        if (!supabase) return { articles: 0, dirs: 0, logs: 0 };
-        const [art, dir, log] = await Promise.all([
-            supabase.from('articulos').select('*', { count: 'exact', head: true }),
-            supabase.from('directorios_proyectos').select('*', { count: 'exact', head: true }),
-            supabase.from('system_logs').select('*', { count: 'exact', head: true })
-        ]);
-        return {
-            articles: art.count || 0,
-            dirs: dir.count || 0,
-            logs: log.count || 0
-        };
-    },
-
-    // --- BACKOFFICE (Admin only) ---
-    async getAllLogs() {
-        if (!supabase) return [];
-        // Intento 1: Con JOIN (requiere FK en DB)
-        const { data, error } = await supabase
-            .from('system_logs')
-            .select(`
-                *,
-                profiles!user_id (full_name)
-            `)
-            .order('created_at', { ascending: false })
-            .limit(100);
-
-        if (error) {
-            console.warn("Fallo JOIN en logs, reintentando sin perfiles...", error.message);
-            // Intento 2: Sin JOIN (por si no han ejecutado el SQL de relación)
-            const { data: data2, error: error2 } = await supabase
-                .from('system_logs')
-                .select('*')
-                .order('created_at', { ascending: false })
-                .limit(100);
-
-            if (error2) {
-                console.error("Error total cargando logs:", error2);
-                return [];
-            }
-            return data2;
-        }
-        return data;
-    },
-
-    async logSystemAction(actionType, moduleName, details = {}) {
-        if (!supabase) return;
-        try {
-            const session = await this.getCurrentSession();
-            await supabase.from('system_logs').insert([{
-                user_id: session?.user?.id || null,
-                action_type: actionType,
-                module_name: moduleName,
-                details: details
-            }]);
-        } catch (e) {
-            console.warn("Fallo al registrar log de sistema:", e);
-        }
-    },
-
-    async getProfilesWithRoles() {
-        if (!supabase) return [];
-        const { data, error } = await supabase
-            .from('profiles')
-            .select(`
-                id,
-                full_name,
-                created_at,
-                user_roles (role)
-            `);
-        if (error) {
-            console.error("Error cargando perfiles:", error);
-            return [];
-        }
-        return data;
-    },
-
-    // --- TICKETS OPERATIVOS ---
+    // --- TICKETS ---
     async getTickets() {
-        if (!supabase) return [];
-        const { data, error } = await supabase
-            .from('operativo_tickets')
-            .select(`
-                *,
-                profiles!user_id (full_name)
-            `)
-            .order('created_at', { ascending: false });
-        if (error) {
-            console.error("Error cargando tickets:", error);
-            return [];
-        }
-        return data;
+        return await fetchWithCache('/data/tickets', {}, 'tickets:all');
     },
 
+    async updateTicketStatus(ticketId, status) {
+        if (!ticketId || !status) {
+            throw new Error('ID de ticket y estado son obligatorios');
+        }
+        invalidateCache('tickets:');
+        return await fetchAPI(`/data/tickets/${ticketId}/status`, {
+            method: 'PUT',
+            body: JSON.stringify({ status })
+        });
+    },
+
+    async createTicket(ticketData) {
+        if (!ticketData || !ticketData.titulo) {
+            throw new Error('Datos de ticket inválidos');
+        }
+        invalidateCache('tickets:');
+        return await fetchAPI('/data/tickets', {
+            method: 'POST',
+            body: JSON.stringify(ticketData)
+        });
+    },
+
+    // Alias para compatibilidad con TicketModal
     async saveTicket(ticketData) {
-        if (!supabase) throw new Error("Supabase no configurado");
-        const { data, error } = await supabase
-            .from('operativo_tickets')
-            .insert([ticketData]);
-        if (error) throw error;
-        return data;
-    },
-
-    async updateTicketStatus(ticketId, nuevoEstado) {
-        if (!supabase) throw new Error("Supabase no configurado");
-        const updates = { estado: nuevoEstado, updated_at: new Date().toISOString() };
-        if (nuevoEstado === 'Resuelto') updates.resuelto_at = new Date().toISOString();
-
-        const { data, error } = await supabase
-            .from('operativo_tickets')
-            .update(updates)
-            .eq('id', ticketId)
-            .select();
-
-        if (error) throw error;
-        if (!data || data.length === 0) throw new Error('Sin permiso para actualizar. Ejecuta el SQL de permisos en Supabase.');
-
-        if (nuevoEstado === 'Resuelto') {
-            try { await this.logSystemAction('Ticket Resuelto', 'Tickets', { ticketId }); } catch (e) { }
-        }
-        return data;
-    },
-
-    async archiveTicket(ticketId) {
-        if (!supabase) throw new Error("Supabase no configurado");
-        const { data, error } = await supabase
-            .from('operativo_tickets')
-            .update({ archivado: true, updated_at: new Date().toISOString() })
-            .eq('id', ticketId)
-            .select();
-        if (error) throw error;
-        if (!data || data.length === 0) throw new Error('Sin permiso para archivar. Ejecuta el SQL de permisos en Supabase.');
-        try { await this.logSystemAction('Ticket Archivado', 'Tickets', { ticketId }); } catch (e) { }
-        return data;
-    },
-
-    async updateTicketPriority(ticketId, nuevaPrioridad) {
-        if (!supabase) throw new Error("Supabase no configurado");
-        const payload = { prioridad: nuevaPrioridad, updated_at: new Date().toISOString() };
-        const { data, error } = await supabase.from('operativo_tickets').update(payload).eq('id', ticketId).select();
-        if (error) throw error;
-        if (!data || data.length === 0) throw new Error('Sin permiso para actualizar prioridad. Ejecuta el SQL de permisos en Supabase.');
-        return data;
-    },
-
-    async assignTicket(ticketId, tecnicoId, notas) {
-        if (!supabase) throw new Error("Supabase no configurado");
-        // Solo actualizamos los campos que existen siempre en la tabla
-        const payload = { estado: 'Pendiente', updated_at: new Date().toISOString() };
-        const { data, error } = await supabase.from('operativo_tickets').update(payload).eq('id', ticketId).select();
-        if (error) throw error;
-        if (!data || data.length === 0) throw new Error('Sin permiso para asignar ticket. Ejecuta el SQL de permisos en Supabase.');
-        return data;
-    },
-
-    async saveMasterDiagnosis(ticketId, diagData) {
-        if (!supabase) throw new Error("Supabase no configurado");
-        const session = await this.getCurrentSession();
-        let payload = {
-            ...diagData,
-            estado: 'Diagnosticado',
-            diagnosticado_at: new Date().toISOString(),
-            diagnosticado_por: session?.user?.id || null,
-            updated_at: new Date().toISOString()
-        };
-
-        const robustUpdate = async (p) => {
-            const { data, error } = await supabase.from('operativo_tickets').update(p).eq('id', ticketId).select();
-            if (error) {
-                if (error.code === 'PGRST204' || (error.message && error.message.includes('does not exist'))) {
-                    const match = error.message.match(/'([^']+)'/) || error.message.match(/column [^\.]+\.([a-z_]+) does not exist/i);
-                    if (match && match[1] && p[match[1]] !== undefined) {
-                        const badCol = match[1];
-                        console.warn(`Auto-Fix Diagnosis: Ignorando columna faltante '${badCol}'...`);
-                        const np = { ...p };
-                        delete np[badCol];
-                        if (Object.keys(np).length > 0) return robustUpdate(np);
-                    }
-                }
-                throw error;
-            }
-            if (!data || data.length === 0) {
-                throw new Error("Permiso denegado por RLS al guardar. Las políticas de Supabase impiden esta actualización para el usuario actual.");
-            }
-            return data;
-        };
-
-        return await robustUpdate(payload);
-    },
-
-    async saveKnowledge(knowledgeData) {
-        if (!supabase) throw new Error("Supabase no configurado");
-        const { user } = await this.getCurrentSession();
-        const { data, error } = await supabase
-            .from('operativo_knowledge')
-            .insert([{ ...knowledgeData, creado_por: user.id }]);
-        if (error) throw error;
-        return data;
-    },
-
-    async addTicketLog(ticketId, tipo, contenido) {
-        if (!supabase) throw new Error("Supabase no configurado");
-        const { user } = await this.getCurrentSession();
-        const { data, error } = await supabase
-            .from('ticket_activity_log')
-            .insert([{
-                ticket_id: ticketId,
-                user_id: user.id,
-                tipo,
-                contenido
-            }]);
-        if (error) throw error;
-        return data;
-    },
-
-    async getTicketLogs(ticketId) {
-        if (!supabase) return [];
-        const { data, error } = await supabase
-            .from('ticket_activity_log')
-            .select(`
-                *,
-                profiles:user_id (full_name)
-            `)
-            .eq('ticket_id', ticketId)
-            .order('created_at', { ascending: true });
-        if (error) {
-            console.error("Error cargando logs de ticket:", error);
-            return [];
-        }
-        return data;
+        return this.createTicket(ticketData);
     },
 
     async getMyAssignedTickets() {
-        if (!supabase) return [];
         const { user } = await this.getCurrentSession();
         if (!user) return [];
+        const allTickets = await this.getTickets();
+        return allTickets.filter(t => t.asignado_a === user.id && !t.archivado);
+    },
 
-        const { data, error } = await supabase
-            .from('operativo_tickets')
-            .select(`
-                *,
-                profiles!user_id (full_name)
-            `)
-            .eq('asignado_a', user.id)
-            .order('created_at', { ascending: false });
-        if (error) {
-            console.error("Error cargando mis tickets asignados:", error);
-            return [];
+    async assignTicket(ticketId, userId, notes) {
+        if (!ticketId) {
+            throw new Error('ID de ticket es obligatorio');
         }
-        return data;
+        invalidateCache('tickets:');
+        return await fetchAPI(`/data/tickets/${ticketId}/assign`, {
+            method: 'PUT',
+            body: JSON.stringify({ user_id: userId, notes })
+        });
+    },
+
+    async archiveTicket(ticketId) {
+        if (!ticketId) {
+            throw new Error('ID de ticket es obligatorio');
+        }
+        invalidateCache('tickets:');
+        return await fetchAPI(`/data/tickets/${ticketId}/archive`, {
+            method: 'PUT'
+        });
+    },
+
+    async updateTicketPriority(ticketId, priority) {
+        if (!ticketId || !priority) {
+            throw new Error('ID de ticket y prioridad son obligatorios');
+        }
+        invalidateCache('tickets:');
+        return await fetchAPI(`/data/tickets/${ticketId}/priority`, {
+            method: 'PUT',
+            body: JSON.stringify({ priority })
+        });
+    },
+
+    // --- TICKET LOGS ---
+    async getTicketLogs(ticketId) {
+        return await fetchAPI(`/data/tickets/${ticketId}/logs`);
+    },
+
+    async addTicketLog(ticketId, tipo, contenido) {
+        if (!ticketId || !tipo) {
+            throw new Error('ID de ticket y tipo son obligatorios');
+        }
+        return await fetchAPI(`/data/tickets/${ticketId}/logs`, {
+            method: 'POST',
+            body: JSON.stringify({ tipo, contenido })
+        });
+    },
+
+    // --- DIAGNÓSTICO ---
+    async saveMasterDiagnosis(ticketId, data) {
+        if (!ticketId || !data) {
+            throw new Error('ID de ticket y datos de diagnóstico son obligatorios');
+        }
+        invalidateCache('tickets:');
+        return await fetchAPI(`/data/tickets/${ticketId}/diagnosis`, {
+            method: 'PUT',
+            body: JSON.stringify(data)
+        });
+    },
+
+    // --- KNOWLEDGE BASE ---
+    async saveKnowledge(knowledgeData) {
+        if (!knowledgeData) {
+            throw new Error('Datos de conocimiento inválidos');
+        }
+        return await fetchAPI('/data/knowledge', {
+            method: 'POST',
+            body: JSON.stringify(knowledgeData)
+        });
+    },
+
+    // --- LOGS Y AUDITORÍA ---
+    async insertLog(actionType, moduleName, details = {}) {
+        const logEntry = {
+            action_type: actionType,
+            module_name: moduleName,
+            details,
+            timestamp: new Date().toISOString()
+        };
+
+        try {
+            const { user } = await this.getCurrentSession();
+            logEntry.user_id = user?.id;
+        } catch {
+            // Continuar sin user_id
+        }
+
+        pendingLogs.push(logEntry);
+        flushPendingLogs().catch(() => {});
+    },
+
+    async logSystemAction(actionType, moduleName, details = {}) {
+        const logEntry = {
+            action_type: actionType,
+            module_name: moduleName,
+            details,
+            timestamp: new Date().toISOString()
+        };
+
+        try {
+            const { user } = await this.getCurrentSession();
+            logEntry.user_id = user?.id;
+        } catch {
+            // Continuar sin user_id
+        }
+
+        pendingLogs.push(logEntry);
+        flushPendingLogs().catch(() => {});
+    },
+
+    async getAllLogs() {
+        return await fetchWithCache('/data/logs', {}, 'logs:all');
+    },
+
+    // --- DIRECTORIOS ---
+    async getCounts() {
+        return await fetchWithCache('/data/counts', {}, 'data:counts');
+    },
+
+    async getDirectorios() {
+        return await fetchWithCache('/data/directorios', {}, 'directorios:all');
+    },
+
+    async saveDirectorio(dirData) {
+        if (!dirData || (!dirData.ruta_completa && !dirData.nombre_directorio)) {
+            throw new Error('Datos de directorio inválidos');
+        }
+        invalidateCache('directorios:');
+        invalidateCache('data:');
+        return await fetchAPI('/data/directorios', {
+            method: 'POST',
+            body: JSON.stringify(dirData)
+        });
+    },
+
+    // --- PERFILES ---
+    async getProfilesWithRoles() {
+        return await fetchWithCache('/auth/profiles', {}, 'profiles:all');
+    },
+
+    // --- GESTIÓN DE USUARIOS ---
+    async createNewUser(email, password, fullName, role) {
+        if (!email || !password || !fullName) {
+            throw new Error('Email, contraseña y nombre completo son obligatorios');
+        }
+        const result = await fetchAPI('/auth/register', {
+            method: 'POST',
+            body: JSON.stringify({ email, password, full_name: fullName })
+        });
+        if (role && role !== 'user') {
+            await fetchAPI(`/auth/users/${result.id}/role`, {
+                method: 'PUT',
+                body: JSON.stringify({ role })
+            });
+        }
+        invalidateCache('profiles:');
+        return result;
+    },
+
+    async updateUserRole(userId, newRole) {
+        if (!userId || !newRole) {
+            throw new Error('ID de usuario y rol son obligatorios');
+        }
+        invalidateCache('profiles:');
+        return await fetchAPI(`/auth/users/${userId}/role`, {
+            method: 'PUT',
+            body: JSON.stringify({ role: newRole })
+        });
+    },
+
+    async deleteUser(userId) {
+        if (!userId) {
+            throw new Error('ID de usuario es obligatorio');
+        }
+        invalidateCache('profiles:');
+        return await fetchAPI(`/auth/users/${userId}`, {
+            method: 'DELETE'
+        });
+    },
+
+    // --- TARIFAS ---
+    async getProveedores() {
+        return await fetchWithCache('/tarifas/proveedores', {}, 'tarifas:proveedores');
+    },
+
+    async createProveedor(nombre) {
+        if (!nombre || !nombre.trim()) {
+            throw new Error('Nombre del proveedor es obligatorio');
+        }
+        invalidateCache('tarifas:');
+        return await fetchAPI('/tarifas/proveedores', {
+            method: 'POST',
+            body: JSON.stringify({ nombre: nombre.trim() })
+        });
+    },
+
+    async deleteProveedor(id) {
+        if (!id) {
+            throw new Error('ID de proveedor es obligatorio');
+        }
+        invalidateCache('tarifas:');
+        return await fetchAPI(`/tarifas/proveedores/${id}`, {
+            method: 'DELETE'
+        });
+    },
+
+    async getTarifas(filtros = {}) {
+        const params = new URLSearchParams();
+        if (filtros.version_id) params.append('version_id', filtros.version_id);
+        if (filtros.proveedor_id) params.append('proveedor_id', filtros.proveedor_id);
+        if (filtros.familia) params.append('familia', filtros.familia);
+        if (filtros.year) params.append('year', filtros.year);
+        if (filtros.search) params.append('search', filtros.search);
+
+        const query = params.toString();
+        const cacheKey = `tarifas:${query}`;
+        return await fetchWithCache(`/tarifas${query ? '?' + query : ''}`, {}, cacheKey);
+    },
+
+    async saveTarifas(tarifas) {
+        if (!Array.isArray(tarifas) || tarifas.length === 0) {
+            throw new Error('Lista de tarifas inválida');
+        }
+        invalidateCache('tarifas:');
+        return await fetchAPI('/tarifas', {
+            method: 'POST',
+            body: JSON.stringify(tarifas)
+        });
+    },
+
+    async importTarifaVersion(payload) {
+        if (!payload || !Array.isArray(payload.tarifas) || payload.tarifas.length === 0) {
+            throw new Error('Importación de tarifas inválida');
+        }
+        invalidateCache('tarifas:');
+        return await fetchAPI('/tarifas/import', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+    },
+
+    async getTarifaVersiones(proveedorId) {
+        if (!proveedorId) {
+            throw new Error('ID de proveedor es obligatorio');
+        }
+        return await fetchWithCache(`/tarifas/versiones?proveedor_id=${encodeURIComponent(proveedorId)}`, {}, `tarifas:versiones:${proveedorId}`);
+    },
+
+    async activateTarifaVersion(versionId) {
+        if (!versionId) {
+            throw new Error('ID de versión es obligatorio');
+        }
+        invalidateCache('tarifas:');
+        return await fetchAPI(`/tarifas/versiones/${versionId}/activate`, {
+            method: 'POST'
+        });
+    },
+
+    async deleteTarifaVersion(versionId) {
+        if (!versionId) {
+            throw new Error('ID de versión es obligatorio');
+        }
+        invalidateCache('tarifas:');
+        return await fetchAPI(`/tarifas/versiones/${versionId}`, {
+            method: 'DELETE'
+        });
+    },
+
+    async getTarifaVersionExportData(versionId) {
+        if (!versionId) {
+            throw new Error('ID de versión es obligatorio');
+        }
+        return await fetchAPI(`/tarifas/versiones/${versionId}/export-data`);
+    },
+
+    async getFamilias(filtros = {}) {
+        const params = new URLSearchParams();
+        if (filtros.version_id) params.append('version_id', filtros.version_id);
+        if (filtros.proveedor_id) params.append('proveedor_id', filtros.proveedor_id);
+        if (filtros.year) params.append('year', filtros.year);
+        const query = params.toString();
+        return await fetchWithCache(`/tarifas/familias${query ? '?' + query : ''}`, {}, `tarifas:familias:${query}`);
+    },
+
+    async getAnos(proveedorId) {
+        const query = proveedorId ? `?proveedor_id=${encodeURIComponent(proveedorId)}` : '';
+        return await fetchWithCache(`/tarifas/anos${query}`, {}, `tarifas:anos:${proveedorId || 'all'}`);
+    },
+
+    // --- ENVIOS ---
+    async getEnviosHealth() {
+        return await fetchWithCache('/envios/health', {}, 'envios:health');
+    },
+
+    async getEnviosRoutes({ mode, origin } = {}) {
+        if (!mode) {
+            throw new Error('El modo de envío es obligatorio');
+        }
+
+        const params = new URLSearchParams({ mode });
+        if (origin) params.append('origin', origin);
+
+        const query = params.toString();
+        return await fetchWithCache(`/envios/routes?${query}`, {}, `envios:routes:${query}`);
+    },
+
+    async getEnviosTariffs({ mode, origin, destination } = {}) {
+        if (!mode) {
+            throw new Error('El modo de envío es obligatorio');
+        }
+
+        const params = new URLSearchParams({ mode });
+        if (origin) params.append('origin', origin);
+        if (destination) params.append('destination', destination);
+
+        const query = params.toString();
+        return await fetchWithCache(`/envios/tariffs?${query}`, {}, `envios:tariffs:${query}`);
+    },
+
+    async createEnviosQuote(payload) {
+        if (!payload || !payload.mode) {
+            throw new Error('El payload del envío es obligatorio');
+        }
+
+        return await fetchAPI('/envios/quote', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        });
+    },
+
+    // --- PANEL CONFIG ---
+    async getPanelConfig() {
+        return await fetchAPI('/data/panel-config');
+    },
+
+    async updatePanelConfig(configs) {
+        if (!Array.isArray(configs)) {
+            throw new Error('Configuración de paneles inválida');
+        }
+        return await fetchAPI('/data/panel-config', {
+            method: 'PUT',
+            body: JSON.stringify(configs)
+        });
     }
 };

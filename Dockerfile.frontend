@@ -1,0 +1,28 @@
+FROM node:20-alpine AS build
+
+WORKDIR /app
+
+# Copiar solo package.json para caché de dependencias
+COPY package*.json ./
+
+RUN npm ci
+
+# Copiar código fuente
+COPY . .
+
+# Build del frontend
+RUN npm run build
+
+# Stage final
+FROM nginx:alpine
+
+# Instalar envsubst
+RUN apk add --no-cache gettext
+
+COPY --from=build /app/apps/frontend/dist /usr/share/nginx/html
+COPY apps/frontend/nginx.conf /etc/nginx/templates/default.conf.template
+
+# Exponer puerto
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]
