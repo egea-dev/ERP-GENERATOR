@@ -404,6 +404,15 @@ export default function CalculadoraEnvios() {
               <button type="submit" className="btn btn-p" disabled={!canSubmit || quoteLoading}>
                 {quoteLoading ? 'Calculando...' : 'Calcular'}
               </button>
+              <a
+                href="https://tarifasenvios.egeadev.cloud"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-g"
+                style={{ textDecoration: 'none' }}
+              >
+                Calculadora completa ↗
+              </a>
             </div>
           </div>
         </form>
