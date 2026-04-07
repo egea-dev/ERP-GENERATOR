@@ -10,7 +10,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-erp_generator}
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata-v2:/var/lib/postgresql/data
       - ./database/00_standalone_postgres.sql:/docker-entrypoint-initdb.d/00_standalone_postgres.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
@@ -61,4 +61,4 @@ services:
       - backend
 
 volumes:
-  pgdata:
+  pgdata-v2:
