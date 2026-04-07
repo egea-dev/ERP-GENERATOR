@@ -1,9 +1,10 @@
 const express = require('express');
 const {
+    getHealth,
     getRoutes,
     getTariffs,
     createQuote,
-} = require('../services/envios/staticTarifas');
+} = require('../services/envios/externalTarifasApi');
 
 const router = express.Router();
 
@@ -21,11 +22,16 @@ function handleEnviosError(res, error) {
     res.status(status).json(payload);
 }
 
-router.get('/health', (_req, res) => {
-    res.json({ status: 'ok', service: 'envios-static' });
+router.get('/health', async (_req, res) => {
+    try {
+        const data = await getHealth();
+        res.json(data);
+    } catch (error) {
+        handleEnviosError(res, error);
+    }
 });
 
-router.get('/routes', (req, res) => {
+router.get('/routes', async (req, res) => {
     const { mode, origin } = req.query;
 
     if (!mode) {
@@ -36,14 +42,14 @@ router.get('/routes', (req, res) => {
     }
 
     try {
-        const data = getRoutes({ mode, origin });
+        const data = await getRoutes({ mode, origin });
         res.json(data);
     } catch (error) {
         handleEnviosError(res, error);
     }
 });
 
-router.get('/tariffs', (req, res) => {
+router.get('/tariffs', async (req, res) => {
     const { mode, origin, destination } = req.query;
 
     if (!mode) {
@@ -54,16 +60,16 @@ router.get('/tariffs', (req, res) => {
     }
 
     try {
-        const data = getTariffs({ mode, origin, destination });
+        const data = await getTariffs({ mode, origin, destination });
         res.json(data);
     } catch (error) {
         handleEnviosError(res, error);
     }
 });
 
-router.post('/quote', (req, res) => {
+router.post('/quote', async (req, res) => {
     try {
-        const data = createQuote(req.body || {});
+        const data = await createQuote(req.body || {});
         res.json(data);
     } catch (error) {
         handleEnviosError(res, error);
