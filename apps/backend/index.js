@@ -16,8 +16,6 @@ const app = express();
 // Seed admin user on startup
 seedAdminUser().catch((err) => console.error('[SEED] Error:', err.message));
 
-const app = express();
-
 // CORS
 const corsOrigin = !CORS_ORIGIN || CORS_ORIGIN === '*'
     ? true
