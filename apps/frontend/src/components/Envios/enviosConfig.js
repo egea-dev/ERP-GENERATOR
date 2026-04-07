@@ -41,9 +41,7 @@ export const CONTAINER_TYPES = [
   { value: '40HC', label: '40HC' },
 ];
 
-export const FIXED_ORIGINS = {
-  grupaje: 'Barcelona',
-};
+export const FIXED_ORIGINS = {};
 
 function createId() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {

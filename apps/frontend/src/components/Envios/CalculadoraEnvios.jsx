@@ -235,14 +235,14 @@ export default function CalculadoraEnvios() {
           )}
 
           <div className="envios-form-grid">
-              <FieldShell label="Origen" htmlFor="envios-origin" required error={visibleErrors.origin} hint={mode === 'grupaje' ? 'Origen fijo' : 'Selecciona origen'}>
+              <FieldShell label="Origen" htmlFor="envios-origin" required error={visibleErrors.origin} hint="Selecciona origen">
                 <select
                   id="envios-origin"
                   className={`search-sel${visibleErrors.origin ? ' error' : ''}`}
                   value={form.origin}
                   onChange={(e) => updateField('origin', e.target.value)}
                   onBlur={() => markTouched('origin')}
-                  disabled={routesLoading || mode === 'grupaje'}
+                  disabled={routesLoading}
                 >
                   <option value="">Selecciona...</option>
                   {currentOriginOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
