@@ -9,12 +9,16 @@ const authRouter = require('./routes/auth');
 const dataRouter = require('./routes/data');
 const tarifasRouter = require('./routes/tarifas');
 const enviosRouter = require('./routes/envios');
+const runMigrations = require('./migrate');
 const seedAdminUser = require('./seedAdmin');
 
 const app = express();
 
-// Seed admin user on startup
-seedAdminUser().catch((err) => console.error('[SEED] Error:', err.message));
+// Run migrations then seed admin user on startup
+(async () => {
+    await runMigrations();
+    await seedAdminUser();
+})().catch((err) => console.error('[STARTUP] Error:', err.message));
 
 // CORS
 const corsOrigin = !CORS_ORIGIN || CORS_ORIGIN === '*'
