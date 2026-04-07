@@ -9,6 +9,12 @@ const authRouter = require('./routes/auth');
 const dataRouter = require('./routes/data');
 const tarifasRouter = require('./routes/tarifas');
 const enviosRouter = require('./routes/envios');
+const seedAdminUser = require('./seedAdmin');
+
+const app = express();
+
+// Seed admin user on startup
+seedAdminUser().catch((err) => console.error('[SEED] Error:', err.message));
 
 const app = express();
 
