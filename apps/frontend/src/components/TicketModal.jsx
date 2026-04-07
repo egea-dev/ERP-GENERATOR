@@ -148,6 +148,9 @@ export default function TicketModal({ isOpen, onClose }) {
                                         <option value="General">General</option>
                                         <option value="REFGEN">REFGEN</option>
                                         <option value="URLGEN">URLGEN</option>
+                                        <option value="CONSULTAS IA">CONSULTAS IA</option>
+                                        <option value="TARIFAS">TARIFAS</option>
+                                        <option value="ENVIOS">ENVIOS</option>
                                         <option value="Backoffice">Backoffice</option>
                                     </select>
                                 </div>
