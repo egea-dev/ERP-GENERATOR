@@ -59,7 +59,7 @@ export default function ViewHist({ db, loadArt }) {
       <div className="h-list">
         {rows.length === 0 && <div className="empty">Sin resultados</div>}
         {rows.map((a) => (
-          <div key={a.id} className="h-row" onClick={() => loadArt(a)}>
+          <div key={a.id} className="h-row" onDoubleClick={() => loadArt(a)}>
             <div className="h-ref">{a.ref}</div>
             <div className="h-desc">{a.desc}</div>
             <div className="h-tags">
@@ -71,7 +71,7 @@ export default function ViewHist({ db, loadArt }) {
           </div>
         ))}
       </div>
-      <div className="foot">{rows.length} / {db.length} · Clic en cualquier fila para editarla</div>
+      <div className="foot">{rows.length} / {db.length} · Doble clic en cualquier fila para editarla</div>
     </div>
   );
 }
