@@ -7,7 +7,7 @@ services:
       - "${DB_PORT_BIND:-5434}:5432"
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
       POSTGRES_DB: ${POSTGRES_DB:-erp_generator}
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -27,8 +27,8 @@ services:
       TS_HOSTNAME: ${TS_HOSTNAME:-erp-backend-ai}
       TS_EXTRA_ARGS: ${TS_EXTRA_ARGS:---advertise-tags=tag:erp-ai}
       TS_OUTBOUND_HTTP_PROXY_LISTEN: ${TS_OUTBOUND_HTTP_PROXY_LISTEN:-:1055}
-      TS_STATE_DIR: /var/lib/tailscale
-      TS_USERSPACE: "true"
+      TS_STATE_DIR: ${TS_STATE_DIR:-/var/lib/tailscale}
+      TS_USERSPACE: ${TS_USERSPACE:-true}
     volumes:
       - tailscale_state:/var/lib/tailscale
     expose:
@@ -44,22 +44,26 @@ services:
       - "${BACKEND_PORT_BIND:-3001}:3001"
     environment:
       PORT: 3001
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-erp_generator}
-      JWT_SECRET: ${JWT_SECRET:-erp-generator-secret-key-change-me}
-      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?}@db:5432/${POSTGRES_DB:-erp_generator}
+      JWT_SECRET: ${JWT_SECRET:?}
+      CORS_ORIGIN: ${CORS_ORIGIN:?}
       DEFAULT_LLM_PROVIDER: ${DEFAULT_LLM_PROVIDER:-lmstudio}
-      LMSTUDIO_DEFAULT_MODEL: ${LMSTUDIO_DEFAULT_MODEL:-local-model}
+      LMSTUDIO_DEFAULT_MODEL: ${LMSTUDIO_DEFAULT_MODEL:?}
       LMSTUDIO_PROXY_URL: ${LMSTUDIO_PROXY_URL:-http://tailscale:1055}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       RAG_TOP_K: ${RAG_TOP_K:-5}
       RAG_SIMILARITY_THRESHOLD: ${RAG_SIMILARITY_THRESHOLD:-0.70}
-      LMSTUDIO_URL: ${LMSTUDIO_URL:-http://host.docker.internal:1234/v1}
+      LMSTUDIO_URL: ${LMSTUDIO_URL:?}
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-nomic-embed-text-v1.5}
       TARIFAS_API_BASE_URL: ${TARIFAS_API_BASE_URL:-http://host.docker.internal:8001/api/external/v1}
-      TARIFAS_API_KEY: ${TARIFAS_API_KEY:-dev-external-api-key}
-      URLGEN_DISPLAY_BASE_PATH: '${URLGEN_DISPLAY_BASE_PATH:-P:\PROYECTOS}'
+      TARIFAS_API_KEY: ${TARIFAS_API_KEY:?}
+      URLGEN_DISPLAY_BASE_PATH: '${URLGEN_DISPLAY_BASE_PATH:-X:\PRESUPUESTOS 2026}'
+      SERVICE_URL_BACKEND: ${SERVICE_URL_BACKEND:-}
+      SERVICE_FQDN_BACKEND: ${SERVICE_FQDN_BACKEND:-}
+      SERVICE_URL_FRONTEND: ${SERVICE_URL_FRONTEND:-}
+      SERVICE_FQDN_FRONTEND: ${SERVICE_FQDN_FRONTEND:-}
     depends_on:
       db:
         condition: service_healthy
