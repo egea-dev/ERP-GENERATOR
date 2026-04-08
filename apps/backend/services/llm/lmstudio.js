@@ -1,4 +1,5 @@
 const { OpenAI } = require('openai');
+const { ProxyAgent, fetch: undiciFetch } = require('undici');
 const LLMProvider = require('./base');
 
 /**
@@ -8,11 +9,21 @@ const LLMProvider = require('./base');
 class LMStudioProvider extends LLMProvider {
     constructor() {
         super();
+        this.baseURL = process.env.LMSTUDIO_URL || 'http://localhost:1234/v1';
+        this.proxyURL = process.env.LMSTUDIO_PROXY_URL || '';
+        this.fetchOptions = this.proxyURL
+            ? { dispatcher: new ProxyAgent(this.proxyURL) }
+            : undefined;
+
         this.client = new OpenAI({
-            baseURL: process.env.LMSTUDIO_URL || 'http://localhost:1234/v1',
+            baseURL: this.baseURL,
             apiKey: 'lm-studio', // El valor no importa para LM Studio local
+            fetchOptions: this.fetchOptions,
         });
-        console.log(`[LMStudio] Cliente inicializado con baseURL: ${this.client.baseURL}`);
+        console.log(`[LMStudio] Cliente inicializado con baseURL: ${this.baseURL}`);
+        if (this.proxyURL) {
+            console.log(`[LMStudio] Proxy HTTP activo: ${this.proxyURL}`);
+        }
         this.defaultModel = process.env.LMSTUDIO_DEFAULT_MODEL || 'local-model';
     }
 
@@ -37,7 +48,7 @@ class LMStudioProvider extends LLMProvider {
     }
 
     async healthCheck() {
-        const baseUrl = this.client.baseURL.replace(/\/$/, '');
+        const baseUrl = this.baseURL.replace(/\/$/, '');
         const paths = [
             baseUrl.endsWith('/v1') ? `${baseUrl}/models` : `${baseUrl}/v1/models`,
             baseUrl + '/models',
@@ -48,7 +59,10 @@ class LMStudioProvider extends LLMProvider {
             try {
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 1500);
-                const resp = await fetch(url, { signal: controller.signal });
+                const resp = await undiciFetch(url, {
+                    signal: controller.signal,
+                    ...(this.fetchOptions || {}),
+                });
                 clearTimeout(timeoutId);
                 if (resp.ok) return { available: true };
             } catch (e) { /* continue */ }

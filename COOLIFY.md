@@ -131,7 +131,7 @@ Si prefieres gestionar cada servicio por separado:
 
 ## IA local por Tailscale
 
-Si quieres que el backend consuma `LMStudio` local sin meter toda la VPS en Tailscale, usa el mismo stack Compose del ERP con un sidecar `tailscale` para el backend.
+Si quieres que el backend consuma `LMStudio` local sin meter toda la VPS en Tailscale, usa el mismo stack Compose del ERP con un contenedor `tailscale` como proxy HTTP saliente.
 
 - Compose listo: `docker-compose.yml`
 - Guía paso a paso: `COOLIFY_LMSTUDIO_TAILSCALE.md`
@@ -139,9 +139,9 @@ Si quieres que el backend consuma `LMStudio` local sin meter toda la VPS en Tail
 La idea es:
 
 - `frontend` sigue publico
-- `backend` se despliega con `tailscale` en el mismo stack
+- `backend` sigue en la red normal del stack
 - `db` sigue interna en el mismo stack
-- `LMStudio` se consume por `LMSTUDIO_URL` dentro de tu tailnet
+- `LMStudio` se consume por `LMSTUDIO_URL` a traves del proxy de `tailscale`
 
 ---
 

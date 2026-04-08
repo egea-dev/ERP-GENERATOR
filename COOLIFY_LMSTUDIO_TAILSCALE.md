@@ -1,52 +1,37 @@
 # Coolify + LMStudio local por Tailscale
 
-Esta guia deja el backend del ERP dentro de Tailscale sin meter toda la VPS en la tailnet y sin separar la base de datos del stack actual.
+Esta es la forma correcta para este proyecto en Coolify:
 
-## Objetivo
+- `frontend` y `backend` siguen en la red Docker normal del stack
+- PostgreSQL sigue interna como `db:5432`
+- `tailscale` se usa solo como proxy HTTP saliente hacia la tailnet
+- el `backend` llama a LMStudio a traves de ese proxy
 
-- Mantener `frontend` publico.
-- Mantener la app accesible desde internet como siempre.
-- Hacer que el `backend` use `LMStudio` local por Tailscale.
-- No exponer `LMStudio` a internet.
-
-## Archivo listo para usar
-
-Usa el compose principal del proyecto:
-
-- `docker-compose.yml`
+Con esto evitamos romper el DNS interno entre `frontend`, `backend` y `db`.
 
 ## Arquitectura
 
 ```text
-Usuario -> Frontend publico -> Nginx frontend
-                                  |
-                                  v
-                    host.docker.internal:3001
-                                  |
-                                  v
-                               Backend
-                                  |
-                    +-------------+-------------+
-                    |                           |
-                    v                           v
-                 db:5432            LMStudio local en tu tailnet
+Usuario -> Frontend publico -> backend:3001
+                               |
+                               v
+                      tailscale:1055 (proxy HTTP)
+                               |
+                               v
+                LMStudio local en tu red Tailscale
 ```
 
-## Requisitos previos
+## Por que este modelo
 
-### En el servidor de Coolify
+El patron `network_mode: service:tailscale` funciona para algunos contenedores, pero en Coolify rompe facilmente la comunicacion interna del stack y el proxy del frontend.
 
-- Docker debe tener disponible `/dev/net/tun`
-- El host debe permitir contenedores con `cap_add: net_admin`
+Para este ERP es mas estable:
 
-### En el equipo donde corre LMStudio
+- dejar `backend` visible como `backend:3001`
+- dejar `frontend` apuntando a `backend:3001`
+- sacar solo las peticiones de LMStudio por el proxy de Tailscale
 
-- Tailscale instalado y conectado
-- LMStudio con servidor API activado
-- Un modelo cargado en memoria
-- El hostname Tailscale debe resolver desde la tailnet
-
-## Variables que debes poner en Coolify
+## Variables en Coolify
 
 ### Obligatorias
 
@@ -67,6 +52,8 @@ LMSTUDIO_DEFAULT_MODEL=nombre-exacto-del-modelo
 DEFAULT_LLM_PROVIDER=lmstudio
 TS_HOSTNAME=erp-backend-ai
 TS_EXTRA_ARGS=--advertise-tags=tag:erp-ai
+TS_OUTBOUND_HTTP_PROXY_LISTEN=:1055
+LMSTUDIO_PROXY_URL=http://tailscale:1055
 DB_PORT_BIND=5434
 BACKEND_PORT_BIND=3001
 FRONTEND_PORT_BIND=5173
@@ -76,91 +63,62 @@ RAG_SIMILARITY_THRESHOLD=0.70
 EMBEDDING_MODEL=text-embedding-nomic-embed-text-v1.5
 ```
 
+## Como funciona
+
+1. El frontend llama a `backend:3001` dentro del stack.
+2. El backend sigue usando `db:5432` con normalidad.
+3. El proveedor `lmstudio` usa `LMSTUDIO_URL` como destino final.
+4. Si `LMSTUDIO_PROXY_URL` esta configurada, el cliente OpenAI usa un `ProxyAgent` de `undici`.
+5. Ese proxy apunta al contenedor `tailscale` en `tailscale:1055`.
+6. El contenedor `tailscale` reenvia la salida HTTP hacia tu tailnet.
+
 ## Como obtener el modelo exacto de LMStudio
 
-Desde una maquina dentro de Tailscale:
+Desde cualquier maquina dentro de Tailscale:
 
 ```bash
 curl http://tu-host-lmstudio.tailnet.ts.net:1234/v1/models
 ```
 
-Luego copia el `id` exacto y ponlo en `LMSTUDIO_DEFAULT_MODEL`.
-
-## Pasos en Coolify
-
-1. Usa el recurso `Docker Compose` actual del ERP.
-2. Sube el `docker-compose.yml` actualizado.
-3. Rellena las variables de entorno anteriores.
-4. Despliega el stack.
-5. Mantén el dominio en `frontend` como antes.
-
-## Importante sobre el proxy interno
-
-Como `backend` usa `network_mode: service:tailscale`, el puerto `3001` vive en el namespace de `tailscale` y se publica solo en localhost del host Docker.
-
-Por eso el frontend ahora hace proxy a:
-
-- `http://host.docker.internal:3001`
-
-Esto evita depender del DNS interno entre servicios de Coolify.
-
-## Tailscale ACL recomendada
-
-Si quieres limitar el acceso del backend solo a LMStudio:
-
-```json
-{
-  "tagOwners": {
-    "tag:erp-ai": ["autogroup:admin"],
-    "tag:lmstudio": ["autogroup:admin"]
-  },
-  "acls": [
-    {
-      "action": "accept",
-      "src": ["tag:erp-ai"],
-      "dst": ["tag:lmstudio:1234"]
-    }
-  ]
-}
-```
+Luego copia el `id` exacto a `LMSTUDIO_DEFAULT_MODEL`.
 
 ## Comprobacion rapida
 
 Una vez desplegado:
 
 1. Abre `GET /api/chat/providers`
-2. Verifica que `lmstudio` aparece como disponible
-3. En la UI del chat, el proveedor `LMSTUDIO` debe salir en verde
-4. Haz una prueba corta sin RAG
+2. Comprueba que `lmstudio` sale disponible
+3. En la UI del chat, `LMSTUDIO` debe salir en verde
+4. Prueba un prompt corto sin RAG
 
 ## Fallos tipicos
+
+### El login falla o la app devuelve 502
+
+En este modelo no deberia ser por Tailscale, porque el frontend vuelve a hablar con `backend:3001`.
+
+Revisa:
+
+- que `apps/frontend/nginx.conf` apunte a `http://backend:3001`
+- que el backend este healthy
 
 ### LMStudio sale en rojo
 
 Revisa:
 
 - `LMSTUDIO_URL`
-- que el modelo este cargado
-- que LMStudio responda a `/v1/models`
-- que Tailscale vea el host local
+- `LMSTUDIO_PROXY_URL`
+- que el modelo este cargado en LMStudio
+- que Tailscale este autenticado con `TS_AUTHKEY`
 
-### El backend no arranca
+### El backend arranca pero LMStudio sigue sin responder
 
-Revisa:
+Revisa logs del contenedor `tailscale`:
 
-- `TS_AUTHKEY`
-- existencia de `/dev/net/tun`
-- permisos `net_admin`
+- autenticacion del nodo
+- salida del proxy HTTP
+- resolucion del hostname tailnet de LMStudio
 
-### El frontend carga pero la API falla
+## Nota
 
-Revisa:
-
-- que `apps/frontend/nginx.conf` apunte a `http://host.docker.internal:3001`
-- que `frontend` tenga `extra_hosts: host.docker.internal:host-gateway`
-- que el contenedor `tailscale` esté levantado
-- que el backend haya arrancado correctamente dentro del namespace de `tailscale`
-
-## Nota operativa
-
-Este modelo mantiene la base de datos interna del mismo stack. No cambia el host de PostgreSQL: sigue siendo `db:5432` dentro del compose.
+Este modelo mantiene intacta la base de datos actual y evita tocar el enrutado interno del stack publico.
