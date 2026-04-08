@@ -129,6 +129,22 @@ Si prefieres gestionar cada servicio por separado:
 
 ---
 
+## IA local por Tailscale
+
+Si quieres que el backend consuma `LMStudio` local sin meter toda la VPS en Tailscale, usa el mismo stack Compose del ERP con un sidecar `tailscale` para el backend.
+
+- Compose listo: `docker-compose.yml`
+- Guía paso a paso: `COOLIFY_LMSTUDIO_TAILSCALE.md`
+
+La idea es:
+
+- `frontend` sigue publico
+- `backend` se despliega con `tailscale` en el mismo stack
+- `db` sigue interna en el mismo stack
+- `LMStudio` se consume por `LMSTUDIO_URL` dentro de tu tailnet
+
+---
+
 ## Opción C: Nixpacks (Más simple)
 
 Coolify soporta Nixpacks automáticamente. Solo necesitas:

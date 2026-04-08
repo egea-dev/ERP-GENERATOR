@@ -4,7 +4,7 @@ services:
     container_name: erp-db
     restart: unless-stopped
     ports:
-      - "5434:5432"
+      - "${DB_PORT_BIND:-5434}:5432"
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
@@ -13,10 +13,29 @@ services:
       - pgdata:/var/lib/postgresql/data
       - ./database/00_standalone_postgres.sql:/docker-entrypoint-initdb.d/00_standalone_postgres.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 10s
       timeout: 5s
       retries: 5
+
+  tailscale:
+    image: tailscale/tailscale:latest
+    container_name: erp-tailscale
+    restart: unless-stopped
+    ports:
+      - "${BACKEND_PORT_BIND:-3001}:3001"
+    environment:
+      TS_AUTHKEY: ${TS_AUTHKEY:?}
+      TS_HOSTNAME: ${TS_HOSTNAME:-erp-backend-ai}
+      TS_EXTRA_ARGS: ${TS_EXTRA_ARGS:---advertise-tags=tag:erp-ai}
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_USERSPACE: "false"
+    volumes:
+      - tailscale_state:/var/lib/tailscale
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    cap_add:
+      - net_admin
 
   backend:
     build:
@@ -24,14 +43,14 @@ services:
       dockerfile: Dockerfile
     container_name: erp-backend
     restart: unless-stopped
-    ports:
-      - "3001:3001"
+    network_mode: "service:tailscale"
     environment:
       PORT: 3001
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-erp_generator}
       JWT_SECRET: ${JWT_SECRET:-erp-generator-secret-key-change-me}
       CORS_ORIGIN: ${CORS_ORIGIN:-*}
       DEFAULT_LLM_PROVIDER: ${DEFAULT_LLM_PROVIDER:-lmstudio}
+      LMSTUDIO_DEFAULT_MODEL: ${LMSTUDIO_DEFAULT_MODEL:-local-model}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       GROQ_API_KEY: ${GROQ_API_KEY:-}
@@ -45,6 +64,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      tailscale:
+        condition: service_started
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:3001/health"]
       interval: 30s
@@ -56,13 +77,15 @@ services:
       context: ./apps/frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: /api
+        VITE_API_URL: ${VITE_API_URL:-/api}
     container_name: erp-frontend
     restart: unless-stopped
     ports:
-      - "5173:80"
+      - "${FRONTEND_PORT_BIND:-5173}:80"
     depends_on:
+      - tailscale
       - backend
 
 volumes:
   pgdata:
+  tailscale_state:
