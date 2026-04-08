@@ -21,7 +21,7 @@ Usa el compose principal del proyecto:
 Usuario -> Frontend publico -> Nginx frontend
                                   |
                                   v
-                           tailscale:3001
+                         erp-tailscale:3001
                                   |
                                   v
                                Backend
@@ -100,7 +100,7 @@ Como `backend` usa `network_mode: service:tailscale`, el puerto `3001` vive en e
 
 Por eso el frontend ahora hace proxy a:
 
-- `http://tailscale:3001`
+- `http://erp-tailscale:3001`
 
 No a `http://backend:3001`.
 
@@ -156,7 +156,7 @@ Revisa:
 
 Revisa:
 
-- que `apps/frontend/nginx.conf` apunte a `http://tailscale:3001`
+- que `apps/frontend/nginx.conf` apunte a `http://erp-tailscale:3001`
 - que el contenedor `tailscale` esté levantado
 - que el backend haya arrancado correctamente dentro del namespace de `tailscale`
 
