@@ -23,7 +23,7 @@ services:
     container_name: erp-tailscale
     restart: unless-stopped
     ports:
-      - "${BACKEND_PORT_BIND:-3001}:3001"
+      - "127.0.0.1:${BACKEND_PORT_BIND:-3001}:3001"
     environment:
       TS_AUTHKEY: ${TS_AUTHKEY:?}
       TS_HOSTNAME: ${TS_HOSTNAME:-erp-backend-ai}
@@ -36,10 +36,6 @@ services:
       - /dev/net/tun:/dev/net/tun
     cap_add:
       - net_admin
-    networks:
-      default:
-        aliases:
-          - erp-tailscale
 
   backend:
     build:
@@ -86,6 +82,8 @@ services:
     restart: unless-stopped
     ports:
       - "${FRONTEND_PORT_BIND:-5173}:80"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       - tailscale
       - backend

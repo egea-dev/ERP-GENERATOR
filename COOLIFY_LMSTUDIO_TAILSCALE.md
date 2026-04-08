@@ -21,7 +21,7 @@ Usa el compose principal del proyecto:
 Usuario -> Frontend publico -> Nginx frontend
                                   |
                                   v
-                         erp-tailscale:3001
+                    host.docker.internal:3001
                                   |
                                   v
                                Backend
@@ -96,13 +96,13 @@ Luego copia el `id` exacto y ponlo en `LMSTUDIO_DEFAULT_MODEL`.
 
 ## Importante sobre el proxy interno
 
-Como `backend` usa `network_mode: service:tailscale`, el puerto `3001` vive en el namespace de `tailscale`.
+Como `backend` usa `network_mode: service:tailscale`, el puerto `3001` vive en el namespace de `tailscale` y se publica solo en localhost del host Docker.
 
 Por eso el frontend ahora hace proxy a:
 
-- `http://erp-tailscale:3001`
+- `http://host.docker.internal:3001`
 
-No a `http://backend:3001`.
+Esto evita depender del DNS interno entre servicios de Coolify.
 
 ## Tailscale ACL recomendada
 
@@ -156,7 +156,8 @@ Revisa:
 
 Revisa:
 
-- que `apps/frontend/nginx.conf` apunte a `http://erp-tailscale:3001`
+- que `apps/frontend/nginx.conf` apunte a `http://host.docker.internal:3001`
+- que `frontend` tenga `extra_hosts: host.docker.internal:host-gateway`
 - que el contenedor `tailscale` esté levantado
 - que el backend haya arrancado correctamente dentro del namespace de `tailscale`
 
