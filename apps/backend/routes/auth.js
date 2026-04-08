@@ -1,16 +1,20 @@
+require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
+
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { Pool } = require('pg');
 const { v4: uuidv4 } = require('uuid');
-const { JWT_SECRET } = require('../config');
+
+const JWT_SECRET = process.env.JWT_SECRET || 'default-dev-secret';
+console.log('>>> [AUTH] JWT_SECRET:', JWT_SECRET);
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
 });
 
-console.log('>>> [AUTH] DB Connected');
+console.log('>>> [AUTH] JWT_SECRET:', JWT_SECRET);
 
 // Middleware de autenticación
 const authenticate = (req, res, next) => {

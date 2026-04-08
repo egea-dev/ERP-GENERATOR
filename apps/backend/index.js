@@ -1,7 +1,9 @@
+require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const { JWT_SECRET, PORT, CORS_ORIGIN } = require('./config');
+
 const chatRouter = require('./routes/chat');
 const healthRouter = require('./routes/health');
 const ingestRouter = require('./routes/ingest');

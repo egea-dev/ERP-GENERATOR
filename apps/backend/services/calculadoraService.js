@@ -5,31 +5,36 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 function calculateMargen(inputs) {
     const { coste, margen, dtoVolumen, dtoCliente } = inputs;
     
-    let precio = coste;
+    const c = parseFloat(coste);
+    const m = parseFloat(margen);
+    const dv = parseFloat(dtoVolumen || 0);
+    const dc = parseFloat(dtoCliente || 0);
+    
+    let precio = c;
     let dtoAplicado = 0;
     
-    if (dtoVolumen > 0) {
-        dtoAplicado += dtoVolumen;
-        precio = precio * (1 - dtoVolumen / 100);
+    if (dv > 0) {
+        dtoAplicado += dv;
+        precio = precio * (1 - dv / 100);
     }
     
-    if (dtoCliente > 0) {
-        dtoAplicado += dtoCliente;
-        precio = precio * (1 - dtoCliente / 100);
+    if (dc > 0) {
+        dtoAplicado += dc;
+        precio = precio * (1 - dc / 100);
     }
     
-    const precioConMargen = precio * (1 + margen / 100);
+    const precioConMargen = precio * (1 + m / 100);
     const beneficio = precioConMargen - precio;
-    const dtoTotal = ((coste - precioConMargen) / coste) * 100;
+    const dtoTotal = ((c - precioConMargen) / c) * 100;
     
     return {
-        costeBase: parseFloat(coste.toFixed(2)),
+        costeBase: parseFloat(c.toFixed(2)),
         precioBase: parseFloat(precio.toFixed(2)),
         precioVenta: parseFloat(precioConMargen.toFixed(2)),
         beneficio: parseFloat(beneficio.toFixed(2)),
         dtoAplicado: parseFloat(dtoAplicado.toFixed(2)),
         dtoTotalPorcentaje: parseFloat(dtoTotal.toFixed(2)),
-        margenAplicado: parseFloat(margen.toFixed(2))
+        margenAplicado: parseFloat(m.toFixed(2))
     };
 }
 
