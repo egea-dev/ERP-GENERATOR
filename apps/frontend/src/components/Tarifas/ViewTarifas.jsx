@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState, useDeferredValue } from 'react';
+import { useEffect, useMemo, useState, useDeferredValue, useRef } from 'react';
 import { FixedSizeList as List } from 'react-window';
 import * as XLSX from 'xlsx';
 import { dbService } from '../../dbService';
 import { detectColumn, generateTarifaRef } from '../../config/erp_constants';
 import { useToast } from '../../hooks/useToast';
+import { SkeletonList, SkeletonTable, SkeletonCard } from '../Skeleton';
 
 function Spinner({ size = 24, color = 'var(--acc)' }) {
   return (
@@ -243,6 +244,8 @@ export default function ViewTarifas() {
   const [busquedaGlobal, setBusquedaGlobal] = useState('');
   const [resultadosBusqueda, setResultadosBusqueda] = useState([]);
   const [buscando, setBuscando] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const inputBusquedaRef = useRef(null);
   const { addToast } = useToast();
   const deferredBusqueda = useDeferredValue(busquedaGlobal);
 
@@ -287,6 +290,39 @@ export default function ViewTarifas() {
     return () => clearTimeout(timer);
   }, [deferredBusqueda]);
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        inputBusquedaRef.current?.focus();
+      }
+      if (resultadosBusqueda.length === 0) return;
+      
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedIndex((prev) => (prev < resultadosBusqueda.length - 1 ? prev + 1 : prev));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : -1));
+      } else if (e.key === 'Enter' && selectedIndex >= 0) {
+        e.preventDefault();
+        const item = resultadosBusqueda[selectedIndex];
+        navigator.clipboard.writeText(item.referencia);
+        addToast(`Copiado: ${item.referencia}`, 'success');
+        setBusquedaGlobal('');
+        setResultadosBusqueda([]);
+        setSelectedIndex(-1);
+      } else if (e.key === 'Escape') {
+        setSelectedIndex(-1);
+        setBusquedaGlobal('');
+        setResultadosBusqueda([]);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [resultadosBusqueda, selectedIndex, addToast]);
+
   const handleEliminar = async (id, nombre) => {
     if (!confirm(`¿Eliminar el proveedor "${nombre}" y todas sus versiones de tarifas?`)) return;
       try {
@@ -302,10 +338,7 @@ export default function ViewTarifas() {
     return (
       <div className="main">
         <div className="stitle">BIBLIOTECA DE TARIFAS</div>
-        <div style={{ padding: 60, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, color: 'var(--fg2)' }}>
-          <Spinner size={40} />
-          <div>Cargando proveedores...</div>
-        </div>
+        <SkeletonList items={5} height={80} />
       </div>
     );
   }
@@ -332,6 +365,8 @@ export default function ViewTarifas() {
         <div style={{ marginBottom: 12, fontWeight: 600, color: 'var(--fg)' }}>Buscar en todas las tarifas</div>
         <div style={{ position: 'relative' }}>
           <input
+            ref={inputBusquedaRef}
+            className="mod-in"
           className="mod-in"
           style={{ width: '100%', padding: '10px 40px 10px 14px', fontSize: 15 }}
           placeholder="Buscar por referencia, artículo o nombre original... (Ctrl+K)"
@@ -378,12 +413,26 @@ export default function ViewTarifas() {
               </thead>
               <tbody>
                 {resultadosBusqueda.map((tarifa, index) => (
-                  <tr key={tarifa.id} style={{ borderBottom: '1px solid var(--br)', background: index % 2 ? 'var(--bg2)' : 'transparent' }}>
-                    <td style={{ padding: '8px', fontWeight: 600, color: 'var(--acc)' }}>{tarifa.referencia}</td>
-                    <td style={{ padding: '8px' }}>{tarifa.articulo}</td>
-                    <td style={{ padding: '8px', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={tarifa.descripcion || ''}>{tarifa.descripcion || '-'}</td>
-                    <td style={{ padding: '8px', fontSize: 12, color: 'var(--fg2)' }}>{tarifa.proveedor_nombre || '-'}</td>
-                    <td style={{ padding: '8px', textAlign: 'right' }}>{tarifa.precio !== null ? `${Number(tarifa.precio).toFixed(2)} €` : '-'}</td>
+                  <tr 
+                    key={tarifa.id} 
+                    style={{ 
+                      borderBottom: '1px solid var(--br)', 
+                      background: index === selectedIndex ? 'var(--acc)' : (index % 2 ? 'var(--bg2)' : 'transparent'),
+                      color: index === selectedIndex ? 'white' : 'inherit',
+                      cursor: 'pointer'
+                    }}
+                    onClick={() => {
+                      navigator.clipboard.writeText(tarifa.referencia);
+                      addToast(`Copiado: ${tarifa.referencia}`, 'success');
+                      setBusquedaGlobal('');
+                      setResultadosBusqueda([]);
+                    }}
+                  >
+                    <td style={{ padding: '8px', fontWeight: 600, color: index === selectedIndex ? 'white' : 'var(--acc)' }}>{tarifa.referencia}</td>
+                    <td style={{ padding: '8px', color: index === selectedIndex ? 'white' : 'inherit' }}>{tarifa.articulo}</td>
+                    <td style={{ padding: '8px', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: index === selectedIndex ? 'white' : 'inherit' }} title={tarifa.descripcion || ''}>{tarifa.descripcion || '-'}</td>
+                    <td style={{ padding: '8px', fontSize: 12, color: index === selectedIndex ? 'white' : 'var(--fg2)' }}>{tarifa.proveedor_nombre || '-'}</td>
+                    <td style={{ padding: '8px', textAlign: 'right', color: index === selectedIndex ? 'white' : 'inherit' }}>{tarifa.precio !== null ? `${Number(tarifa.precio).toFixed(2)} €` : '-'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -741,6 +790,7 @@ function ViewVersionesTarifas({ proveedor, onVolver, addToast }) {
   const [actionLoading, setActionLoading] = useState(false);
   const [downloadLoading, setDownloadLoading] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
+  const [sortConfig, setSortConfig] = useState({ field: 'referencia', direction: 'asc' });
 
   const deferredSearch = useDeferredValue(filtros.search);
 
@@ -824,6 +874,33 @@ function ViewVersionesTarifas({ proveedor, onVolver, addToast }) {
 
     loadTarifas();
   }, [selectedVersionId, filtros.familia, deferredSearch]);
+
+  const sortedTarifas = useMemo(() => {
+    if (!tarifas.length) return [];
+    const sorted = [...tarifas].sort((a, b) => {
+      const aVal = a[sortConfig.field] ?? '';
+      const bVal = b[sortConfig.field] ?? '';
+      if (typeof aVal === 'number' && typeof bVal === 'number') {
+        return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal;
+      }
+      const comparison = String(aVal).localeCompare(String(bVal));
+      return sortConfig.direction === 'asc' ? comparison : -comparison;
+    });
+    return sorted;
+  }, [tarifas, sortConfig]);
+
+  const handleSort = (field) => {
+    setSortConfig((prev) => ({
+      field,
+      direction: prev.field === field && prev.direction === 'asc' ? 'desc' : 'asc'
+    }));
+  };
+
+  const SortIcon = ({ field }) => (
+    <span style={{ marginLeft: 4, opacity: sortConfig.field === field ? 1 : 0.3 }}>
+      {sortConfig.field === field ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↕'}
+    </span>
+  );
 
   const activateVersion = async () => {
     if (!selectedVersionId || !selectedVersion || selectedVersion.is_active) return;
@@ -989,10 +1066,7 @@ function ViewVersionesTarifas({ proveedor, onVolver, addToast }) {
       )}
 
       {loadingTarifas ? (
-        <div style={{ textAlign: 'center', padding: 60, color: 'var(--fg2)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
-          <Spinner size={32} />
-          <div>Cargando tarifas...</div>
-        </div>
+        <SkeletonTable rows={8} columns={9} />
       ) : selectedVersion && tarifas.length === 0 ? (
         <div className="card" style={{ textAlign: 'center', padding: 40, color: 'var(--fg2)' }}>
           No hay tarifas para los filtros seleccionados
@@ -1000,26 +1074,26 @@ function ViewVersionesTarifas({ proveedor, onVolver, addToast }) {
       ) : selectedVersion ? (
         <div style={{ border: '1px solid var(--br)', borderRadius: 8, height: 500, display: 'flex', flexDirection: 'column' }}>
           <div style={{ background: 'var(--bg2)', borderBottom: '2px solid var(--br)', display: 'flex', padding: '10px 8px' }}>
-            <div style={{ width: 120, color: 'var(--fg2)', fontSize: 12, fontWeight: 600 }}>Referencia</div>
-            <div style={{ width: 100, color: 'var(--fg2)', fontSize: 12, fontWeight: 600 }}>Artículo</div>
-            <div style={{ width: 180, color: 'var(--fg2)', fontSize: 12, fontWeight: 600 }}>Nombre original</div>
-            <div style={{ width: 80, color: 'var(--fg2)', fontSize: 12, fontWeight: 600 }}>Serie</div>
-            <div style={{ width: 120, color: 'var(--fg2)', fontSize: 12, fontWeight: 600 }}>Clave</div>
-            <div style={{ width: 60, color: 'var(--fg2)', fontSize: 12, fontWeight: 600 }}>Familia</div>
-            <div style={{ width: 50, textAlign: 'center', color: 'var(--fg2)', fontSize: 12, fontWeight: 600 }}>Ancho</div>
-            <div style={{ width: 50, textAlign: 'center', color: 'var(--fg2)', fontSize: 12, fontWeight: 600 }}>Alto</div>
-            <div style={{ width: 70, textAlign: 'right', color: 'var(--fg2)', fontSize: 12, fontWeight: 600 }}>Precio</div>
+            <div style={{ width: 120, color: 'var(--fg2)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }} onClick={() => handleSort('referencia')}>Referencia<SortIcon field="referencia" /></div>
+            <div style={{ width: 100, color: 'var(--fg2)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }} onClick={() => handleSort('articulo')}>Artículo<SortIcon field="articulo" /></div>
+            <div style={{ width: 180, color: 'var(--fg2)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }} onClick={() => handleSort('descripcion')}>Nombre original<SortIcon field="descripcion" /></div>
+            <div style={{ width: 80, color: 'var(--fg2)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }} onClick={() => handleSort('serie')}>Serie<SortIcon field="serie" /></div>
+            <div style={{ width: 120, color: 'var(--fg2)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }} onClick={() => handleSort('clave_descripcion')}>Clave<SortIcon field="clave_descripcion" /></div>
+            <div style={{ width: 60, color: 'var(--fg2)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }} onClick={() => handleSort('familia')}>Familia<SortIcon field="familia" /></div>
+            <div style={{ width: 50, textAlign: 'center', color: 'var(--fg2)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }} onClick={() => handleSort('ancho')}>Ancho<SortIcon field="ancho" /></div>
+            <div style={{ width: 50, textAlign: 'center', color: 'var(--fg2)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }} onClick={() => handleSort('alto')}>Alto<SortIcon field="alto" /></div>
+            <div style={{ width: 70, textAlign: 'right', color: 'var(--fg2)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }} onClick={() => handleSort('precio')}>Precio<SortIcon field="precio" /></div>
           </div>
           <div style={{ flex: 1 }}>
             <List
               height={450}
-              itemCount={tarifas.length}
+              itemCount={sortedTarifas.length}
               itemSize={42}
               width="100%"
               style={{ overflow: 'auto' }}
             >
               {({ index, style }) => {
-                const tarifa = tarifas[index];
+                const tarifa = sortedTarifas[index];
                 return (
                   <div style={{ ...style, display: 'flex', padding: '8px', borderBottom: '1px solid var(--br)', background: index % 2 ? 'var(--bg2)' : 'transparent', alignItems: 'center' }}>
                     <div style={{ width: 120, fontWeight: 600, color: 'var(--acc)', cursor: 'pointer' }} onClick={() => copyToClipboard(tarifa.referencia, tarifa.id)}>
