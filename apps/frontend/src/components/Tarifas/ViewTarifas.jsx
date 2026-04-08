@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 import { dbService } from '../../dbService';
 import { detectColumn, generateTarifaRef } from '../../config/erp_constants';
+import { useToast } from '../../hooks/useToast';
 
 function Spinner({ size = 24, color = 'var(--acc)' }) {
   return (
@@ -241,6 +242,7 @@ export default function ViewTarifas() {
   const [busquedaGlobal, setBusquedaGlobal] = useState('');
   const [resultadosBusqueda, setResultadosBusqueda] = useState([]);
   const [buscando, setBuscando] = useState(false);
+  const { addToast } = useToast();
 
   const loadProveedores = async () => {
     try {
@@ -285,11 +287,12 @@ export default function ViewTarifas() {
 
   const handleEliminar = async (id, nombre) => {
     if (!confirm(`¿Eliminar el proveedor "${nombre}" y todas sus versiones de tarifas?`)) return;
-    try {
+      try {
       await dbService.deleteProveedor(id);
       await loadProveedores();
+      addToast('Proveedor eliminado correctamente', 'success');
     } catch (err) {
-      alert('Error al eliminar: ' + err.message);
+      addToast('Error al eliminar: ' + err.message, 'error');
     }
   };
 
@@ -306,11 +309,11 @@ export default function ViewTarifas() {
   }
 
   if (showSubir) {
-    return <ViewSubirTarifas proveedores={proveedores} onVolver={() => setShowSubir(false)} onComplete={loadProveedores} />;
+    return <ViewSubirTarifas proveedores={proveedores} onVolver={() => setShowSubir(false)} onComplete={loadProveedores} addToast={addToast} />;
   }
 
   if (selectedProveedor) {
-    return <ViewVersionesTarifas proveedor={selectedProveedor} onVolver={() => { setSelectedProveedor(null); loadProveedores(); }} />;
+    return <ViewVersionesTarifas proveedor={selectedProveedor} onVolver={() => { setSelectedProveedor(null); loadProveedores(); }} addToast={addToast} />;
   }
 
   return (
@@ -325,13 +328,35 @@ export default function ViewTarifas() {
 
       <div className="card" style={{ marginBottom: 24, padding: 16 }}>
         <div style={{ marginBottom: 12, fontWeight: 600, color: 'var(--fg)' }}>Buscar en todas las tarifas</div>
-        <input
+        <div style={{ position: 'relative' }}>
+          <input
           className="mod-in"
-          style={{ width: '100%', padding: '10px 14px', fontSize: 15 }}
-          placeholder="Buscar por referencia, artículo o nombre original..."
+          style={{ width: '100%', padding: '10px 40px 10px 14px', fontSize: 15 }}
+          placeholder="Buscar por referencia, artículo o nombre original... (Ctrl+K)"
           value={busquedaGlobal}
           onChange={(event) => setBusquedaGlobal(event.target.value)}
         />
+        {busquedaGlobal && (
+          <button
+            onClick={() => setBusquedaGlobal('')}
+            style={{
+              position: 'absolute',
+              right: 12,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              background: 'none',
+              border: 'none',
+              color: 'var(--fg2)',
+              cursor: 'pointer',
+              fontSize: 18,
+              padding: 4
+            }}
+            title="Limpiar búsqueda"
+          >
+            ×
+          </button>
+        )}
+        </div>
         {buscando && (
           <div style={{ marginTop: 12, color: 'var(--fg2)', fontSize: 13 }}>
             <Spinner size={16} /> Buscando...
@@ -345,6 +370,7 @@ export default function ViewTarifas() {
                   <th style={{ padding: '8px', textAlign: 'left', color: 'var(--fg2)' }}>Referencia</th>
                   <th style={{ padding: '8px', textAlign: 'left', color: 'var(--fg2)' }}>Artículo</th>
                   <th style={{ padding: '8px', textAlign: 'left', color: 'var(--fg2)' }}>Nombre original</th>
+                  <th style={{ padding: '8px', textAlign: 'left', color: 'var(--fg2)' }}>Proveedor</th>
                   <th style={{ padding: '8px', textAlign: 'right', color: 'var(--fg2)' }}>Precio</th>
                 </tr>
               </thead>
@@ -353,7 +379,8 @@ export default function ViewTarifas() {
                   <tr key={tarifa.id} style={{ borderBottom: '1px solid var(--br)', background: index % 2 ? 'var(--bg2)' : 'transparent' }}>
                     <td style={{ padding: '8px', fontWeight: 600, color: 'var(--acc)' }}>{tarifa.referencia}</td>
                     <td style={{ padding: '8px' }}>{tarifa.articulo}</td>
-                    <td style={{ padding: '8px', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={tarifa.descripcion || ''}>{tarifa.descripcion || '-'}</td>
+                    <td style={{ padding: '8px', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={tarifa.descripcion || ''}>{tarifa.descripcion || '-'}</td>
+                    <td style={{ padding: '8px', fontSize: 12, color: 'var(--fg2)' }}>{tarifa.proveedor_nombre || '-'}</td>
                     <td style={{ padding: '8px', textAlign: 'right' }}>{tarifa.precio !== null ? `${Number(tarifa.precio).toFixed(2)} €` : '-'}</td>
                   </tr>
                 ))}
@@ -410,7 +437,7 @@ export default function ViewTarifas() {
   );
 }
 
-function ViewSubirTarifas({ proveedores, onVolver, onComplete }) {
+function ViewSubirTarifas({ proveedores, onVolver, onComplete, addToast }) {
   const [providerMode, setProviderMode] = useState('existing');
   const [selectedProveedorId, setSelectedProveedorId] = useState(proveedores[0]?.id || '');
   const [nombreProveedor, setNombreProveedor] = useState('');
@@ -531,7 +558,7 @@ function ViewSubirTarifas({ proveedores, onVolver, onComplete }) {
 
       const duplicateInfo = preparedImport.summary.duplicateRows ? ` Se omitieron ${preparedImport.summary.duplicateRows} duplicadas.` : '';
       const collisionInfo = preparedImport.summary.collisionRows ? ` ${preparedImport.summary.collisionRows} referencias se ajustaron para evitar colisiones.` : '';
-      alert(`Importación completada. Revisión ${result.version.revision} creada con ${result.inserted} tarifas.${duplicateInfo}${collisionInfo}`);
+      addToast(`Importación completada. Revisión ${result.version.revision} creada con ${result.inserted} tarifas.${duplicateInfo}${collisionInfo}`, 'success');
       await onComplete();
       onVolver();
     } catch (err) {
@@ -700,7 +727,7 @@ function ViewSubirTarifas({ proveedores, onVolver, onComplete }) {
   );
 }
 
-function ViewVersionesTarifas({ proveedor, onVolver }) {
+function ViewVersionesTarifas({ proveedor, onVolver, addToast }) {
   const [versions, setVersions] = useState([]);
   const [selectedYear, setSelectedYear] = useState('');
   const [selectedVersionId, setSelectedVersionId] = useState('');
@@ -735,7 +762,7 @@ function ViewVersionesTarifas({ proveedor, onVolver }) {
       setSelectedYear(String(preferred.importe_year));
       setSelectedVersionId(preferred.id);
     } catch (err) {
-      alert('Error al cargar versiones: ' + err.message);
+      addToast('Error al cargar versiones: ' + err.message, 'error');
     } finally {
       setLoadingVersions(false);
     }
@@ -801,7 +828,7 @@ function ViewVersionesTarifas({ proveedor, onVolver }) {
       await dbService.activateTarifaVersion(selectedVersionId);
       await loadVersions(selectedVersionId);
     } catch (err) {
-      alert('No se pudo activar la versión: ' + err.message);
+      addToast('No se pudo activar la versión: ' + err.message, 'error');
     } finally {
       setActionLoading(false);
     }
@@ -821,7 +848,7 @@ function ViewVersionesTarifas({ proveedor, onVolver }) {
       }
       await loadVersions();
     } catch (err) {
-      alert('No se pudo eliminar la versión: ' + err.message);
+      addToast('No se pudo eliminar la versión: ' + err.message, 'error');
     } finally {
       setActionLoading(false);
     }
@@ -848,10 +875,10 @@ function ViewVersionesTarifas({ proveedor, onVolver }) {
       XLSX.writeFile(workbook, fileName);
 
       if (!exportData.original_layout) {
-        alert('Esta versión no tenía el Excel original guardado. Se descargó una exportación normalizada.');
+        addToast('Esta versión no tenía el Excel original guardado. Se descargó una exportación normalizada.', 'warning');
       }
     } catch (err) {
-      alert('No se pudo descargar el Excel: ' + err.message);
+      addToast('No se pudo descargar el Excel: ' + err.message, 'error');
     } finally {
       setDownloadLoading(false);
     }

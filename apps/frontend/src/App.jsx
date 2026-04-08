@@ -5,6 +5,7 @@ import Login from "./components/Login";
 import { useAuth } from "./context/AuthContext";
 import TicketModal from './components/TicketModal';
 import { dbService } from './dbService';
+import { ToastProvider } from './hooks/useToast';
 
 // Importaciones Modulares
 import "./App.styles.css";
@@ -340,9 +341,11 @@ function Dashboard() {
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/*" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-    </Routes>
+    <ToastProvider>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/*" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+      </Routes>
+    </ToastProvider>
   );
 }
