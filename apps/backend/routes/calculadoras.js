@@ -81,11 +81,23 @@ router.post('/calculate', authenticate, async (req, res) => {
     }
 });
 
-router.get('/history/:type?', authenticate, async (req, res) => {
-    const { type } = req.params;
+router.get('/history', authenticate, async (req, res) => {
+    const { type } = req.query;
     
     try {
         const history = await getCalculatorHistory(req.user.id, type || null);
+        res.json(history);
+    } catch (err) {
+        console.error('[CALCULADORA] Error getting history:', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.get('/history/:type', authenticate, async (req, res) => {
+    const { type } = req.params;
+    
+    try {
+        const history = await getCalculatorHistory(req.user.id, type);
         res.json(history);
     } catch (err) {
         console.error('[CALCULADORA] Error getting history:', err.message);

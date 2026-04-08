@@ -470,14 +470,14 @@ function calculateAreaPared(inputs) {
     const areaTotalParedes = areaUnaPared * paredes;
     
     const puertas = parseInt(numPuertas) || 0;
-    const anchoPuerta = parseFloat(anchoPuerta) || 0.9;
-    const altoPuerta = parseFloat(altoPuerta) || 2.1;
-    const areaPuertas = puertas * anchoPuerta * altoPuerta;
+    const puertaAncho = parseFloat(anchoPuerta) || 0.9;
+    const puertaAlto = parseFloat(altoPuerta) || 2.1;
+    const areaPuertas = puertas * puertaAncho * puertaAlto;
     
     const ventanas = parseInt(numVentanas) || 0;
-    const anchoVentana = parseFloat(anchoVentana) || 1.2;
-    const altoVentana = parseFloat(altoVentana) || 1.5;
-    const areaVentanas = ventanas * anchoVentana * altoVentana;
+    const ventanaAncho = parseFloat(anchoVentana) || 1.2;
+    const ventanaAlto = parseFloat(altoVentana) || 1.5;
+    const areaVentanas = ventanas * ventanaAncho * ventanaAlto;
     
     const areaPintar = areaTotalParedes - areaPuertas - areaVentanas;
     

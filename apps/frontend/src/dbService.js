@@ -596,7 +596,7 @@ export const dbService = {
 
     async getCalculatorHistory(type, limit = 20) {
         const endpoint = type 
-            ? `/calculadora/history/${type}?limit=${limit}` 
+            ? `/calculadora/history?type=${type}&limit=${limit}` 
             : `/calculadora/history?limit=${limit}`;
         return await fetchAPI(endpoint);
     }
