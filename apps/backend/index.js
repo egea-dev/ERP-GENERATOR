@@ -9,6 +9,7 @@ const authRouter = require('./routes/auth');
 const dataRouter = require('./routes/data');
 const tarifasRouter = require('./routes/tarifas');
 const enviosRouter = require('./routes/envios');
+const calculadorasRouter = require('./routes/calculadoras');
 const runMigrations = require('./migrate');
 const seedAdminUser = require('./seedAdmin');
 
@@ -86,6 +87,7 @@ app.use('/api/chat', authenticateToken, ingestRouter);
 app.use('/api/data', authenticateToken, dataRouter);
 app.use('/api/tarifas', authenticateToken, tarifasRouter);
 app.use('/api/envios', authenticateToken, enviosRouter);
+app.use('/api/calculadora', authenticateToken, calculadorasRouter);
 
 // Health (public)
 app.get('/health', (req, res) => {

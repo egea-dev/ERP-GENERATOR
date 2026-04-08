@@ -222,8 +222,36 @@ async function runMigrations() {
             ('urlgen', 'URLGEN', true, '{admin,editor,user}', 2),
             ('chat', 'CONSULTAS IA', true, '{admin,editor,user}', 3),
             ('tarifas', 'TARIFAS', true, '{admin,editor,user}', 4),
-            ('envios', 'ENVÍOS', true, '{admin,editor,user}', 5)
+            ('envios', 'ENVÍOS', true, '{admin,editor,user}', 5),
+            ('calculadora', 'CALCULADORA', true, '{admin,editor,user}', 6)
             ON CONFLICT (panel_id) DO NOTHING;
+        `);
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS public.calculator_history (
+                id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+                user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
+                calculator_type TEXT NOT NULL,
+                inputs JSONB NOT NULL DEFAULT '{}'::jsonb,
+                outputs JSONB NOT NULL DEFAULT '{}'::jsonb,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+            );
+        `);
+
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_calc_history_user ON public.calculator_history(user_id);`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_calc_history_type ON public.calculator_history(calculator_type);`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_calc_history_created ON public.calculator_history(created_at DESC);`);
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS public.calculator_favorites (
+                id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+                user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
+                calculator_type TEXT NOT NULL,
+                name TEXT,
+                inputs JSONB NOT NULL DEFAULT '{}'::jsonb,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+                UNIQUE(user_id, calculator_type, name)
+            );
         `);
 
         console.log('[MIGRATE] Database migrations completed successfully');

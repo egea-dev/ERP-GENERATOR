@@ -585,5 +585,19 @@ export const dbService = {
             method: 'PUT',
             body: JSON.stringify(configs)
         });
+    },
+
+    async saveCalculation(type, inputs, outputs) {
+        return await fetchAPI('/calculadora/calculate', {
+            method: 'POST',
+            body: JSON.stringify({ type, inputs, outputs })
+        });
+    },
+
+    async getCalculatorHistory(type, limit = 20) {
+        const endpoint = type 
+            ? `/calculadora/history/${type}?limit=${limit}` 
+            : `/calculadora/history?limit=${limit}`;
+        return await fetchAPI(endpoint);
     }
 };
