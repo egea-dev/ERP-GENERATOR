@@ -26,30 +26,30 @@ export default function CalculadoraPanel() {
 
     const calculatorCategories = {
         comercial: [
-            { id: 'margen', title: 'Margen Comercial', icon: '💰', desc: 'Calcula precio de venta con margen y descuentos' },
-            { id: 'descuentos', title: 'Descuentos Volumen', icon: '🏷️', desc: 'Aplica descuentos por cantidad y cliente' },
-            { id: 'presupuesto', title: 'Presupuesto Rápido', icon: '📋', desc: 'Materiales + horas + margen = total' },
-            { id: 'preciohora', title: 'Precio Hora', icon: '⏰', desc: 'Calcula precio/hora con margen' }
+            { id: 'margen', title: 'Margen', icon: '💰', desc: 'Precio con margen' },
+            { id: 'descuentos', title: 'Dto. Volumen', icon: '🏷️', desc: 'Descuentos' },
+            { id: 'presupuesto', title: 'Presupuesto', icon: '📋', desc: 'Materiales+horas' },
+            { id: 'preciohora', title: 'Precio Hora', icon: '⏰', desc: 'Coste/hora' }
         ],
         decoracion: [
-            { id: 'cortinero', title: 'Cortineros', icon: '🪟', desc: 'Tela necesaria para cortinas' },
-            { id: 'papel', title: 'Papel Pintado', icon: '📄', desc: 'Rollos necesarios para paredes' },
-            { id: 'suelo', title: 'Suelo/Flotante', icon: '🪵', desc: 'Materiales para instalación de suelo' },
-            { id: 'persianas', title: 'Persianas', icon: '🪟', desc: 'Precio estimado de persianas' },
-            { id: 'rodapies', title: 'Rodapiés', icon: '🧱', desc: 'Materiales para rodapiés' }
+            { id: 'cortinero', title: 'Cortineros', icon: '🪟', desc: 'Tela cortinas' },
+            { id: 'papel', title: 'Papel Pintado', icon: '📄', desc: 'Rollos pared' },
+            { id: 'suelo', title: 'Suelo', icon: '🪵', desc: 'Instalación' },
+            { id: 'persianas', title: 'Persianas', icon: '🪟', desc: 'Precio est.' },
+            { id: 'rodapies', title: 'Rodapiés', icon: '🧱', desc: 'Materiales' }
         ],
         cantidad: [
-            { id: 'cantidad', title: 'Cantidad con Merma', icon: '📐', desc: 'Calcula cantidad total con merma' }
+            { id: 'cantidad', title: 'Cantidad', icon: '📐', desc: 'Con merma' }
         ],
         conversores: [
-            { id: 'unidades', title: 'Conversor Unidades', icon: '🔄', desc: 'm² ↔ ml, kg ↔ unidades, rollos ↔ m²' },
-            { id: 'medidas', title: 'Conversor Medidas', icon: '📏', desc: 'cm ↔ pulg ↔ mm, m ↔ cm' },
-            { id: 'moneda', title: 'Conversor Moneda', icon: '💱', desc: 'EUR ↔ USD (tipo de cambio manual)' }
+            { id: 'unidades', title: 'Unidades', icon: '🔄', desc: 'm²↔ml, kg↔ud' },
+            { id: 'medidas', title: 'Medidas', icon: '📏', desc: 'cm↔pulg' },
+            { id: 'moneda', title: 'Moneda', icon: '💱', desc: 'EUR↔USD' }
         ],
         otros: [
-            { id: 'iluminacion', title: 'Iluminación', icon: '💡', desc: 'Watts necesarios por tipo de habitación' },
-            { id: 'pared', title: 'Área Pared', icon: '🧱', desc: '(Ancho × Alto) - (Puertas + Ventanas)' },
-            { id: 'escalera', title: 'Escalera', icon: '🪜', desc: 'Calcula número de escalones y longitud' }
+            { id: 'iluminacion', title: 'Iluminación', icon: '💡', desc: 'Watts/hab' },
+            { id: 'pared', title: 'Área Pared', icon: '🧱', desc: 'Pintura' },
+            { id: 'escalera', title: 'Escalera', icon: '🪜', desc: 'Escalones' }
         ]
     };
 
@@ -86,7 +86,7 @@ export default function CalculadoraPanel() {
             const data = await dbService.getCalculatorHistory(null, 20);
             setHistory(data);
         } catch (err) {
-            setError('Error cargando historial');
+            setError('Error historial');
             console.error('[CALCULADORA] Error loading history:', err);
         } finally {
             setIsLoading(false);
@@ -111,50 +111,26 @@ export default function CalculadoraPanel() {
     return (
         <div className="calculadora-layout">
             <div className="calculadora-sidebar">
-                <h3>Calculadoras</h3>
                 <div className="calculadora-tabs">
                     {categoryItems.map(({ category, items }) => (
                         <div key={category}>
-                            <div className="calc-category-title">{category.toUpperCase()}</div>
+                            <div className="calc-category-title">{category}</div>
                             {items.map(item => (
                                 <button
                                     key={item.id}
                                     className={`calculadora-tab ${activeCalculator === item.id ? 'active' : ''}`}
                                     onClick={() => setActiveCalculator(item.id)}
                                 >
-                                    <span style={{ fontSize: 20 }}>{item.icon}</span>
+                                    <span>{item.icon}</span>
                                     <div>
                                         <div>{item.title}</div>
-                                        <div style={{ fontSize: 12, color: '#666' }}>{item.desc}</div>
+                                        <div className="chip-sub">{item.desc}</div>
                                     </div>
                                 </button>
                             ))}
                         </div>
                     ))}
                 </div>
-
-                {history.length > 0 && (
-                    <div style={{ marginTop: '24px' }}>
-                        <h4 style={{ margin: '0 0 12px 0', fontSize: '14px' }}>Historial Reciente</h4>
-                        <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
-                            {history.slice(0, 10).map((calc) => (
-                                <div key={calc.id} style={{
-                                    padding: '12px',
-                                    marginBottom: '8px',
-                                    background: '#f8f9fa',
-                                    borderRadius: '8px'
-                                }}>
-                                    <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>
-                                        {calc.calculator_type}
-                                    </div>
-                                    <div style={{ fontSize: '11px', color: '#888' }}>
-                                        {new Date(calc.created_at).toLocaleString()}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
             </div>
 
             <div className="calculadora-content">
@@ -167,14 +143,14 @@ export default function CalculadoraPanel() {
                     <button
                         onClick={loadHistory}
                         className="btn btn-g"
-                        style={{ padding: '6px 12px', fontSize: '12px' }}
+                        style={{ padding: '4px 8px', fontSize: '9px' }}
                     >
-                        Actualizar
+                        ↻
                     </button>
                 </div>
 
                 {error && (
-                    <div className="alert a-e" style={{ marginBottom: '24px' }}>
+                    <div className="alert a-e" style={{ padding: '8px', fontSize: '10px' }}>
                         {error}
                     </div>
                 )}
@@ -184,8 +160,8 @@ export default function CalculadoraPanel() {
                         onSaveCalculation={handleSaveCalculation}
                     />
                 ) : (
-                    <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
-                        <p>Calculadora no disponible</p>
+                    <div style={{ textAlign: 'center', padding: '20px', color: 'var(--fg2)', fontSize: '10px' }}>
+                        No disponible
                     </div>
                 )}
             </div>

@@ -7,7 +7,7 @@ export default function MargenCalculator({ onSaveCalculation }) {
         dtoVolumen: '',
         dtoCliente: ''
     });
-    
+
     const [result, setResult] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -23,31 +23,20 @@ export default function MargenCalculator({ onSaveCalculation }) {
         setLoading(true);
         setError(null);
         try {
-            // Llamar al backend
             const response = await fetch('/api/calculadora/calculate', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${localStorage.getItem('erp_token')}`
                 },
-                body: JSON.stringify({
-                    type: 'margen',
-                    inputs
-                })
+                body: JSON.stringify({ type: 'margen', inputs })
             });
-            
+
             const data = await response.json();
-            
-            if (!response.ok) {
-                throw new Error(data.error || 'Error en el cálculo');
-            }
-            
+            if (!response.ok) throw new Error(data.error || 'Error');
+
             setResult(data.outputs);
-            
-            // Guardar en historial
-            if (onSaveCalculation) {
-                onSaveCalculation('margen', inputs, data.outputs);
-            }
+            if (onSaveCalculation) onSaveCalculation('margen', inputs, data.outputs);
         } catch (err) {
             setError(err.message);
         } finally {
@@ -57,109 +46,49 @@ export default function MargenCalculator({ onSaveCalculation }) {
 
     return (
         <div>
-            <form onSubmit={(e) => { e.preventDefault(); handleCalculate(); }}>
-                <div className="calc-form">
-                    <div className="calc-field">
-                        <label htmlFor="coste">Coste Base (€)</label>
-                        <input
-                            type="number"
-                            id="coste"
-                            name="coste"
-                            value={inputs.coste}
-                            onChange={handleChange}
-                            placeholder="Ej: 85.50"
-                            min="0"
-                            step="0.01"
-                            required
-                        />
-                    </div>
-                    
-                    <div className="calc-field">
-                        <label htmlFor="margen">Margen (%)</label>
-                        <input
-                            type="number"
-                            id="margen"
-                            name="margen"
-                            value={inputs.margen}
-                            onChange={handleChange}
-                            placeholder="Ej: 20"
-                            min="0"
-                            max="500"
-                            step="0.1"
-                            required
-                        />
-                    </div>
-                    
-                    <div className="calc-field">
-                        <label htmlFor="dtoVolumen">Dto. Volumen (%)</label>
-                        <input
-                            type="number"
-                            id="dtoVolumen"
-                            name="dtoVolumen"
-                            value={inputs.dtoVolumen}
-                            onChange={handleChange}
-                            placeholder="Ej: 5 (si compra >10 uds)"
-                            min="0"
-                            max="100"
-                            step="0.1"
-                        />
-                    </div>
-                    
-                    <div className="calc-field">
-                        <label htmlFor="dtoCliente">Dto. Cliente (%)</label>
-                        <input
-                            type="number"
-                            id="dtoCliente"
-                            name="dtoCliente"
-                            value={inputs.dtoCliente}
-                            onChange={handleChange}
-                            placeholder="Ej: 10 (cliente VIP)"
-                            min="0"
-                            max="100"
-                            step="0.1"
-                        />
-                    </div>
+            <div className="calc-form">
+                <div className="calc-field">
+                    <label>Coste €</label>
+                    <input type="number" name="coste" value={inputs.coste} onChange={handleChange} placeholder="0.00" step="0.01" required />
                 </div>
-                
-                <div className="calc-actions">
-                    <button type="submit" className="btn btn-p" disabled={loading}>
-                        {loading ? 'Calculando...' : 'Calcular'}
-                    </button>
-                    <button type="button" className="btn btn-g" onClick={() => setInputs({ coste: '', margen: '', dtoVolumen: '', dtoCliente: '' })}>
-                        Limpiar
-                    </button>
+                <div className="calc-field">
+                    <label>Margen %</label>
+                    <input type="number" name="margen" value={inputs.margen} onChange={handleChange} placeholder="0" step="0.1" required />
                 </div>
-            </form>
-            
+                <div className="calc-field">
+                    <label>Dto. Vol %</label>
+                    <input type="number" name="dtoVolumen" value={inputs.dtoVolumen} onChange={handleChange} placeholder="0" step="0.1" />
+                </div>
+                <div className="calc-field">
+                    <label>Dto. Cliente %</label>
+                    <input type="number" name="dtoCliente" value={inputs.dtoCliente} onChange={handleChange} placeholder="0" step="0.1" />
+                </div>
+            </div>
+
+            <div className="calc-actions">
+                <button className="btn btn-p" onClick={handleCalculate} disabled={loading}>{loading ? '...' : 'Calcular'}</button>
+                <button className="btn btn-g" onClick={() => setInputs({ coste: '', margen: '', dtoVolumen: '', dtoCliente: '' })}>Limpiar</button>
+            </div>
+
             {result && (
                 <div className="calc-result">
-                    <div className="calc-result-header">
-                        Resultado del Cálculo
-                    </div>
+                    <div className="calc-result-header">Resultado</div>
                     <div className="calc-result-grid">
                         <div className="calc-result-item">
-                            <div className="calc-result-label">Coste Base</div>
-                            <div className="calc-result-value">{result.costeBase !== undefined ? `${result.costeBase} €` : '-'}</div>
+                            <div className="calc-result-label">Coste</div>
+                            <div className="calc-result-value">{result.costeBase}€</div>
                         </div>
                         <div className="calc-result-item">
-                            <div className="calc-result-label">Precio Base</div>
-                            <div className="calc-result-value">{result.precioBase !== undefined ? `${result.precioBase} €` : '-'}</div>
-                        </div>
-                        <div className="calc-result-item">
-                            <div className="calc-result-label">Precio Venta</div>
-                            <div className="calc-result-value highlight">{result.precioVenta !== undefined ? `${result.precioVenta} €` : '-'}</div>
+                            <div className="calc-result-label">PVP</div>
+                            <div className="calc-result-value highlight">{result.precioVenta}€</div>
                         </div>
                         <div className="calc-result-item">
                             <div className="calc-result-label">Beneficio</div>
-                            <div className="calc-result-value">{result.beneficio !== undefined ? `${result.beneficio} €` : '-'}</div>
+                            <div className="calc-result-value">{result.beneficio}€</div>
                         </div>
                         <div className="calc-result-item">
-                            <div className="calc-result-label">Dto. Aplicado</div>
-                            <div className="calc-result-value">{result.dtoAplicado !== undefined ? `${result.dtoAplicado}%` : '-'}</div>
-                        </div>
-                        <div className="calc-result-item">
-                            <div className="calc-result-label">Dto. Total</div>
-                            <div className="calc-result-value">{result.dtoTotalPorcentaje !== undefined ? `${result.dtoTotalPorcentaje}%` : '-'}</div>
+                            <div className="calc-result-label">Dto Total</div>
+                            <div className="calc-result-value">{result.dtoTotalPorcentaje}%</div>
                         </div>
                     </div>
                 </div>
