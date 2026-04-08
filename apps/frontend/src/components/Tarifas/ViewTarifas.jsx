@@ -238,6 +238,9 @@ export default function ViewTarifas() {
   const [error, setError] = useState(null);
   const [showSubir, setShowSubir] = useState(false);
   const [selectedProveedor, setSelectedProveedor] = useState(null);
+  const [busquedaGlobal, setBusquedaGlobal] = useState('');
+  const [resultadosBusqueda, setResultadosBusqueda] = useState([]);
+  const [buscando, setBuscando] = useState(false);
 
   const loadProveedores = async () => {
     try {
@@ -255,6 +258,30 @@ export default function ViewTarifas() {
   useEffect(() => {
     loadProveedores();
   }, []);
+
+  const buscarTarifas = async (query) => {
+    if (!query || query.length < 2) {
+      setResultadosBusqueda([]);
+      return;
+    }
+    try {
+      setBuscando(true);
+      const data = await dbService.getTarifas({ search: query, limit: 50 });
+      setResultadosBusqueda(data || []);
+    } catch (err) {
+      console.error('Error en búsqueda:', err);
+      setResultadosBusqueda([]);
+    } finally {
+      setBuscando(false);
+    }
+  };
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      buscarTarifas(busquedaGlobal);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [busquedaGlobal]);
 
   const handleEliminar = async (id, nombre) => {
     if (!confirm(`¿Eliminar el proveedor "${nombre}" y todas sus versiones de tarifas?`)) return;
@@ -294,6 +321,49 @@ export default function ViewTarifas() {
         <button className="btn btn-p" onClick={() => setShowSubir(true)}>
           + Importar nueva versión
         </button>
+      </div>
+
+      <div className="card" style={{ marginBottom: 24, padding: 16 }}>
+        <div style={{ marginBottom: 12, fontWeight: 600, color: 'var(--fg)' }}>Buscar en todas las tarifas</div>
+        <input
+          className="mod-in"
+          style={{ width: '100%', padding: '10px 14px', fontSize: 15 }}
+          placeholder="Buscar por referencia, artículo o nombre original..."
+          value={busquedaGlobal}
+          onChange={(event) => setBusquedaGlobal(event.target.value)}
+        />
+        {buscando && (
+          <div style={{ marginTop: 12, color: 'var(--fg2)', fontSize: 13 }}>
+            <Spinner size={16} /> Buscando...
+          </div>
+        )}
+        {!buscando && resultadosBusqueda.length > 0 && (
+          <div style={{ marginTop: 16, maxHeight: 300, overflowY: 'auto', border: '1px solid var(--br)', borderRadius: 8 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+              <thead>
+                <tr style={{ background: 'var(--bg2)', borderBottom: '2px solid var(--br)' }}>
+                  <th style={{ padding: '8px', textAlign: 'left', color: 'var(--fg2)' }}>Referencia</th>
+                  <th style={{ padding: '8px', textAlign: 'left', color: 'var(--fg2)' }}>Artículo</th>
+                  <th style={{ padding: '8px', textAlign: 'left', color: 'var(--fg2)' }}>Nombre original</th>
+                  <th style={{ padding: '8px', textAlign: 'right', color: 'var(--fg2)' }}>Precio</th>
+                </tr>
+              </thead>
+              <tbody>
+                {resultadosBusqueda.map((tarifa, index) => (
+                  <tr key={tarifa.id} style={{ borderBottom: '1px solid var(--br)', background: index % 2 ? 'var(--bg2)' : 'transparent' }}>
+                    <td style={{ padding: '8px', fontWeight: 600, color: 'var(--acc)' }}>{tarifa.referencia}</td>
+                    <td style={{ padding: '8px' }}>{tarifa.articulo}</td>
+                    <td style={{ padding: '8px', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={tarifa.descripcion || ''}>{tarifa.descripcion || '-'}</td>
+                    <td style={{ padding: '8px', textAlign: 'right' }}>{tarifa.precio !== null ? `${Number(tarifa.precio).toFixed(2)} €` : '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {!buscando && busquedaGlobal.length >= 2 && resultadosBusqueda.length === 0 && (
+          <div style={{ marginTop: 16, color: 'var(--fg2)', fontSize: 13 }}>No se encontraron tarifas</div>
+        )}
       </div>
 
       {error && <div className="alert a-e" style={{ marginBottom: 20 }}>{error}</div>}
@@ -867,7 +937,7 @@ function ViewVersionesTarifas({ proveedor, onVolver }) {
             <input
               className="mod-in"
               style={{ width: 220, padding: '8px 12px' }}
-              placeholder="Buscar referencia o artículo..."
+              placeholder="Buscar referencia, artículo o nombre original..."
               value={filtros.search}
               onChange={(event) => setFiltros({ ...filtros, search: event.target.value })}
             />
@@ -903,6 +973,7 @@ function ViewVersionesTarifas({ proveedor, onVolver }) {
               <tr style={{ background: 'var(--bg2)', borderBottom: '2px solid var(--br)', position: 'sticky', top: 0 }}>
                 <th style={{ padding: '10px 8px', textAlign: 'left', color: 'var(--fg2)' }}>Referencia</th>
                 <th style={{ padding: '10px 8px', textAlign: 'left', color: 'var(--fg2)' }}>Artículo</th>
+                <th style={{ padding: '10px 8px', textAlign: 'left', color: 'var(--fg2)' }}>Nombre original</th>
                 <th style={{ padding: '10px 8px', textAlign: 'left', color: 'var(--fg2)' }}>Serie</th>
                 <th style={{ padding: '10px 8px', textAlign: 'left', color: 'var(--fg2)' }}>Clave</th>
                 <th style={{ padding: '10px 8px', textAlign: 'left', color: 'var(--fg2)' }}>Familia</th>
@@ -923,6 +994,7 @@ function ViewVersionesTarifas({ proveedor, onVolver }) {
                     {copiedId === tarifa.id ? <span style={{ color: '#52c97e', fontSize: 10 }}>✓</span> : null}
                   </td>
                   <td style={{ padding: '8px' }}>{tarifa.articulo || '-'}</td>
+                  <td style={{ padding: '8px', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={tarifa.descripcion || ''}>{tarifa.descripcion || '-'}</td>
                   <td style={{ padding: '8px' }}>{tarifa.serie || '-'}</td>
                   <td style={{ padding: '8px', fontSize: 11, fontFamily: 'var(--mono)' }}>{tarifa.clave_descripcion || '-'}</td>
                   <td style={{ padding: '8px' }}>{tarifa.familia || '-'}</td>
