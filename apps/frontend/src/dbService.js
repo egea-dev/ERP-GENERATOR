@@ -171,7 +171,7 @@ export const dbService = {
         try {
             const data = await fetchAPI('/auth/me');
             return { session: { access_token: token }, user: data.user };
-        } catch (e) {
+        } catch {
             localStorage.removeItem('erp_token');
             return { session: null, user: null };
         }
@@ -374,6 +374,23 @@ export const dbService = {
         return await fetchAPI('/data/directorios', {
             method: 'POST',
             body: JSON.stringify(dirData)
+        });
+    },
+
+    async getDirectorioFolderStatus(directorioId) {
+        if (!directorioId) {
+            throw new Error('ID de directorio obligatorio');
+        }
+        return await fetchAPI(`/data/directorios/${directorioId}/folder-status`);
+    },
+
+    async requestDirectorioFolder(directorioId) {
+        if (!directorioId) {
+            throw new Error('ID de directorio obligatorio');
+        }
+        invalidateCache('directorios:');
+        return await fetchAPI(`/data/directorios/${directorioId}/request-folder`, {
+            method: 'POST'
         });
     },
 

@@ -61,6 +61,22 @@ CREATE TABLE IF NOT EXISTS public.directorios_proyectos (
     fecha_creacion TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS public.urlgen_folder_jobs (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    directorio_id UUID NOT NULL REFERENCES public.directorios_proyectos(id) ON DELETE CASCADE,
+    folder_name TEXT NOT NULL,
+    display_path TEXT,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'done', 'error')),
+    attempts INTEGER NOT NULL DEFAULT 0,
+    last_error TEXT,
+    requested_by UUID REFERENCES public.users(id) ON DELETE SET NULL,
+    worker_id TEXT,
+    requested_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    started_at TIMESTAMP WITH TIME ZONE,
+    completed_at TIMESTAMP WITH TIME ZONE,
+    UNIQUE(directorio_id)
+);
+
 -- 6. Tabla de Tickets (Operativo) (alineada con backend routes/data.js y frontend)
 CREATE TABLE IF NOT EXISTS public.operativo_tickets (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -188,6 +204,8 @@ CREATE INDEX IF NOT EXISTS idx_tickets_archivado ON public.operativo_tickets(arc
 CREATE INDEX IF NOT EXISTS idx_logs_created ON public.system_logs(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_logs_user ON public.system_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_directorios_creado_por ON public.directorios_proyectos(creado_por);
+CREATE INDEX IF NOT EXISTS idx_urlgen_jobs_status_requested ON public.urlgen_folder_jobs(status, requested_at ASC);
+CREATE INDEX IF NOT EXISTS idx_urlgen_jobs_directorio ON public.urlgen_folder_jobs(directorio_id);
 CREATE INDEX IF NOT EXISTS idx_ticket_activity_ticket ON public.ticket_activity_log(ticket_id);
 CREATE INDEX IF NOT EXISTS idx_knowledge_categoria ON public.operativo_knowledge(categoria);
 

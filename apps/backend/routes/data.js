@@ -10,6 +10,49 @@ const pool = new Pool({
 
 console.log('>>> [DATA] DB Connected');
 
+const URLGEN_DISPLAY_BASE_PATH = (process.env.URLGEN_DISPLAY_BASE_PATH || 'P:\\PROYECTOS').replace(/[\\/]+$/, '');
+
+function buildUrlgenDisplayPath(folderName) {
+    return `${URLGEN_DISPLAY_BASE_PATH}\\${folderName}`;
+}
+
+function isValidUrlgenFolderName(folderName) {
+    return typeof folderName === 'string' && /^[A-Z0-9_-]{1,80}$/.test(folderName);
+}
+
+function normalizeFolderJob(row, fallback = {}) {
+    return {
+        job_id: row?.job_id || row?.id || null,
+        directorio_id: row?.directorio_id || fallback.directorio_id || null,
+        folder_name: row?.folder_name || fallback.folder_name || null,
+        display_path: row?.display_path || fallback.display_path || null,
+        status: row?.status || fallback.status || 'not_requested',
+        attempts: row?.attempts || 0,
+        last_error: row?.last_error || null,
+        requested_at: row?.requested_at || null,
+        started_at: row?.started_at || null,
+        completed_at: row?.completed_at || null,
+        worker_id: row?.worker_id || null,
+    };
+}
+
+async function insertSystemLog(userId, actionType, moduleName, details = {}) {
+    await pool.query(
+        'INSERT INTO system_logs (user_id, action_type, module_name, details, created_at) VALUES ($1, $2, $3, $4, NOW())',
+        [userId || null, actionType, moduleName, JSON.stringify(details || {})]
+    );
+}
+
+async function getFolderJobByDirectorioId(directorioId) {
+    const result = await pool.query(
+        `SELECT id, directorio_id, folder_name, display_path, status, attempts, last_error, requested_at, started_at, completed_at, worker_id
+         FROM urlgen_folder_jobs
+         WHERE directorio_id = $1`,
+        [directorioId]
+    );
+    return result.rows[0] || null;
+}
+
 // Middleware de autenticación
 const authenticate = (req, res, next) => {
     const authHeader = req.headers['authorization'];
@@ -244,9 +287,19 @@ router.get('/directorios', authenticate, async (req, res) => {
         const limit = Math.min(parseInt(req.query.limit) || 200, 500);
         const offset = parseInt(req.query.offset) || 0;
         const result = await pool.query(`
-            SELECT d.*, u.full_name as creado_por_nombre 
+            SELECT
+                d.*,
+                u.full_name as creado_por_nombre,
+                j.status as folder_status,
+                j.attempts as folder_attempts,
+                j.last_error as folder_last_error,
+                j.requested_at as folder_requested_at,
+                j.started_at as folder_started_at,
+                j.completed_at as folder_completed_at,
+                j.worker_id as folder_worker_id
             FROM directorios_proyectos d 
             LEFT JOIN users u ON d.creado_por = u.id 
+            LEFT JOIN urlgen_folder_jobs j ON j.directorio_id = d.id
             ORDER BY d.fecha_creacion DESC
             LIMIT $1 OFFSET $2
         `, [limit, offset]);
@@ -257,15 +310,125 @@ router.get('/directorios', authenticate, async (req, res) => {
 });
 
 router.post('/directorios', authenticate, async (req, res) => {
-    const { nombre_directorio, credencial_usuario, nombre_proyecto, codigo_proyecto, nombre_asignado, descripcion, ruta_completa } = req.body;
+    const { nombre_directorio, credencial_usuario, nombre_proyecto, codigo_proyecto, nombre_asignado, descripcion } = req.body;
     try {
+        if (!isValidUrlgenFolderName(nombre_directorio)) {
+            return res.status(400).json({ error: 'El nombre del directorio contiene caracteres no permitidos.' });
+        }
+
+        const rutaCompleta = buildUrlgenDisplayPath(nombre_directorio);
         const result = await pool.query(
             `INSERT INTO directorios_proyectos (nombre_directorio, credencial_usuario, nombre_proyecto, codigo_proyecto, nombre_asignado, descripcion, ruta_completa, creado_por, fecha_creacion) 
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW()) 
              RETURNING *`,
-            [nombre_directorio, credencial_usuario, nombre_proyecto, codigo_proyecto, nombre_asignado, descripcion, ruta_completa, req.user.id]
+            [nombre_directorio, credencial_usuario, nombre_proyecto, codigo_proyecto, nombre_asignado, descripcion, rutaCompleta, req.user.id]
         );
         res.status(201).json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.get('/directorios/:id/folder-status', authenticate, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const directorioResult = await pool.query(
+            'SELECT id, nombre_directorio, ruta_completa FROM directorios_proyectos WHERE id = $1 LIMIT 1',
+            [id]
+        );
+
+        if (!directorioResult.rows.length) {
+            return res.status(404).json({ error: 'Directorio no encontrado' });
+        }
+
+        const directorio = directorioResult.rows[0];
+        const job = await getFolderJobByDirectorioId(id);
+        res.json(normalizeFolderJob(job, {
+            directorio_id: directorio.id,
+            folder_name: directorio.nombre_directorio,
+            display_path: directorio.ruta_completa,
+        }));
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.post('/directorios/:id/request-folder', authenticate, async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const directorioResult = await pool.query(
+            'SELECT id, nombre_directorio, ruta_completa FROM directorios_proyectos WHERE id = $1 LIMIT 1',
+            [id]
+        );
+
+        if (!directorioResult.rows.length) {
+            return res.status(404).json({ error: 'Directorio no encontrado' });
+        }
+
+        const directorio = directorioResult.rows[0];
+        const displayPath = buildUrlgenDisplayPath(directorio.nombre_directorio);
+
+        if (!isValidUrlgenFolderName(directorio.nombre_directorio)) {
+            return res.status(400).json({ error: 'El directorio guardado contiene caracteres no permitidos para el worker privado.' });
+        }
+
+        const existingJob = await getFolderJobByDirectorioId(id);
+
+        if (existingJob?.status === 'done') {
+            return res.json(normalizeFolderJob(existingJob, {
+                directorio_id: directorio.id,
+                folder_name: directorio.nombre_directorio,
+                display_path: displayPath,
+            }));
+        }
+
+        let job;
+
+        if (!existingJob) {
+            const insertResult = await pool.query(
+                `INSERT INTO urlgen_folder_jobs (directorio_id, folder_name, display_path, status, attempts, last_error, requested_by, requested_at)
+                 VALUES ($1, $2, $3, 'pending', 0, NULL, $4, NOW())
+                 RETURNING *`,
+                [directorio.id, directorio.nombre_directorio, displayPath, req.user.id]
+            );
+            job = insertResult.rows[0];
+        } else {
+            const updateResult = await pool.query(
+                `UPDATE urlgen_folder_jobs
+                 SET folder_name = $2,
+                     display_path = $3,
+                     status = 'pending',
+                     last_error = NULL,
+                     requested_by = $4,
+                     requested_at = NOW(),
+                     started_at = NULL,
+                     completed_at = NULL,
+                     worker_id = NULL
+                 WHERE directorio_id = $1
+                 RETURNING *`,
+                [directorio.id, directorio.nombre_directorio, displayPath, req.user.id]
+            );
+            job = updateResult.rows[0];
+        }
+
+        await pool.query(
+            'UPDATE directorios_proyectos SET ruta_completa = $2 WHERE id = $1',
+            [directorio.id, displayPath]
+        );
+
+        await insertSystemLog(req.user.id, 'FOLDER_REQUEST', 'URLGEN', {
+            directorio_id: directorio.id,
+            directorio: directorio.nombre_directorio,
+            display_path: displayPath,
+            retry: Boolean(existingJob),
+        });
+
+        res.status(202).json(normalizeFolderJob(job, {
+            directorio_id: directorio.id,
+            folder_name: directorio.nombre_directorio,
+            display_path: displayPath,
+        }));
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -342,10 +505,7 @@ router.put('/panel-config', authenticate, requireAdmin, async (req, res) => {
 router.post('/logs', authenticate, async (req, res) => {
     const { action_type, module_name, details } = req.body;
     try {
-        await pool.query(
-            'INSERT INTO system_logs (user_id, action_type, module_name, details, created_at) VALUES ($1, $2, $3, $4, NOW())',
-            [req.user.id, action_type, module_name, JSON.stringify(details || {})]
-        );
+        await insertSystemLog(req.user.id, action_type, module_name, details);
         res.sendStatus(201);
     } catch (err) {
         console.error(err);

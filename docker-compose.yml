@@ -41,6 +41,7 @@ services:
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-nomic-embed-text-v1.5}
       TARIFAS_API_BASE_URL: ${TARIFAS_API_BASE_URL:-http://host.docker.internal:8001/api/external/v1}
       TARIFAS_API_KEY: ${TARIFAS_API_KEY:-dev-external-api-key}
+      URLGEN_DISPLAY_BASE_PATH: '${URLGEN_DISPLAY_BASE_PATH:-P:\PROYECTOS}'
     depends_on:
       db:
         condition: service_healthy

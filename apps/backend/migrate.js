@@ -74,6 +74,24 @@ async function runMigrations() {
         `);
 
         await pool.query(`
+            CREATE TABLE IF NOT EXISTS public.urlgen_folder_jobs (
+                id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+                directorio_id UUID NOT NULL REFERENCES public.directorios_proyectos(id) ON DELETE CASCADE,
+                folder_name TEXT NOT NULL,
+                display_path TEXT,
+                status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'done', 'error')),
+                attempts INTEGER NOT NULL DEFAULT 0,
+                last_error TEXT,
+                requested_by UUID REFERENCES public.users(id) ON DELETE SET NULL,
+                worker_id TEXT,
+                requested_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+                started_at TIMESTAMP WITH TIME ZONE,
+                completed_at TIMESTAMP WITH TIME ZONE,
+                UNIQUE(directorio_id)
+            );
+        `);
+
+        await pool.query(`
             CREATE TABLE IF NOT EXISTS public.operativo_tickets (
                 id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
                 user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
@@ -204,6 +222,8 @@ async function runMigrations() {
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_logs_created ON public.system_logs(created_at DESC);`);
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_logs_user ON public.system_logs(user_id);`);
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_directorios_creado_por ON public.directorios_proyectos(creado_por);`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_urlgen_jobs_status_requested ON public.urlgen_folder_jobs(status, requested_at ASC);`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_urlgen_jobs_directorio ON public.urlgen_folder_jobs(directorio_id);`);
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_ticket_activity_ticket ON public.ticket_activity_log(ticket_id);`);
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_knowledge_categoria ON public.operativo_knowledge(categoria);`);
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_tarifa_versiones_proveedor ON public.tarifa_versiones(proveedor_id);`);
