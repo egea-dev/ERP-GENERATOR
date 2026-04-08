@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState, useDeferredValue, useRef } from 'react';
-import { FixedSizeList as List } from 'react-window';
+import { List } from 'react-window';
 import * as XLSX from 'xlsx';
 import { dbService } from '../../dbService';
 import { detectColumn, generateTarifaRef } from '../../config/erp_constants';
 import { useToast } from '../../hooks/useToast';
-import { SkeletonList, SkeletonTable, SkeletonCard } from '../Skeleton';
+import { SkeletonList, SkeletonTable } from '../Skeleton';
 
 function Spinner({ size = 24, color = 'var(--acc)' }) {
   return (
@@ -12,6 +12,39 @@ function Spinner({ size = 24, color = 'var(--acc)' }) {
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
       <circle cx="12" cy="12" r="10" stroke={color} strokeWidth="3" fill="none" strokeDasharray="31.4 31.4" strokeLinecap="round" />
     </svg>
+  );
+}
+
+function TarifaVirtualRow({ index, style, ariaAttributes, items, copiedId, onCopy }) {
+  const tarifa = items[index];
+
+  if (!tarifa) return null;
+
+  return (
+    <div
+      {...ariaAttributes}
+      style={{
+        ...style,
+        display: 'flex',
+        padding: '8px',
+        borderBottom: '1px solid var(--br)',
+        background: index % 2 ? 'var(--bg2)' : 'transparent',
+        alignItems: 'center',
+        boxSizing: 'border-box'
+      }}
+    >
+      <div style={{ width: 120, fontWeight: 600, color: 'var(--acc)', cursor: 'pointer' }} onClick={() => onCopy(tarifa.referencia, tarifa.id)}>
+        {tarifa.referencia} {copiedId === tarifa.id ? <span style={{ color: '#52c97e', fontSize: 10 }}>✓</span> : null}
+      </div>
+      <div style={{ width: 100 }}>{tarifa.articulo || '-'}</div>
+      <div style={{ width: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={tarifa.descripcion}>{tarifa.descripcion || '-'}</div>
+      <div style={{ width: 80 }}>{tarifa.serie || '-'}</div>
+      <div style={{ width: 120, fontSize: 11, fontFamily: 'var(--mono)' }}>{tarifa.clave_descripcion || '-'}</div>
+      <div style={{ width: 60 }}>{tarifa.familia || '-'}</div>
+      <div style={{ width: 50, textAlign: 'center' }}>{tarifa.ancho ?? '-'}</div>
+      <div style={{ width: 50, textAlign: 'center' }}>{tarifa.alto || '-'}</div>
+      <div style={{ width: 70, textAlign: 'right' }}>{tarifa.precio != null ? `${Number(tarifa.precio).toFixed(2)} €` : '-'}</div>
+    </div>
   );
 }
 
@@ -367,12 +400,11 @@ export default function ViewTarifas() {
           <input
             ref={inputBusquedaRef}
             className="mod-in"
-          className="mod-in"
-          style={{ width: '100%', padding: '10px 40px 10px 14px', fontSize: 15 }}
-          placeholder="Buscar por referencia, artículo o nombre original... (Ctrl+K)"
-          value={busquedaGlobal}
-          onChange={(event) => setBusquedaGlobal(event.target.value)}
-        />
+            style={{ width: '100%', padding: '10px 40px 10px 14px', fontSize: 15 }}
+            placeholder="Buscar por referencia, artículo o nombre original... (Ctrl+K)"
+            value={busquedaGlobal}
+            onChange={(event) => setBusquedaGlobal(event.target.value)}
+          />
         {busquedaGlobal && (
           <button
             onClick={() => setBusquedaGlobal('')}
@@ -1086,31 +1118,14 @@ function ViewVersionesTarifas({ proveedor, onVolver, addToast }) {
           </div>
           <div style={{ flex: 1 }}>
             <List
-              height={450}
-              itemCount={sortedTarifas.length}
-              itemSize={42}
-              width="100%"
-              style={{ overflow: 'auto' }}
-            >
-              {({ index, style }) => {
-                const tarifa = sortedTarifas[index];
-                return (
-                  <div style={{ ...style, display: 'flex', padding: '8px', borderBottom: '1px solid var(--br)', background: index % 2 ? 'var(--bg2)' : 'transparent', alignItems: 'center' }}>
-                    <div style={{ width: 120, fontWeight: 600, color: 'var(--acc)', cursor: 'pointer' }} onClick={() => copyToClipboard(tarifa.referencia, tarifa.id)}>
-                      {tarifa.referencia} {copiedId === tarifa.id ? <span style={{ color: '#52c97e', fontSize: 10 }}>✓</span> : null}
-                    </div>
-                    <div style={{ width: 100 }}>{tarifa.articulo || '-'}</div>
-                    <div style={{ width: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={tarifa.descripcion}>{tarifa.descripcion || '-'}</div>
-                    <div style={{ width: 80 }}>{tarifa.serie || '-'}</div>
-                    <div style={{ width: 120, fontSize: 11, fontFamily: 'var(--mono)' }}>{tarifa.clave_descripcion || '-'}</div>
-                    <div style={{ width: 60 }}>{tarifa.familia || '-'}</div>
-                    <div style={{ width: 50, textAlign: 'center' }}>{tarifa.ancho ?? '-'}</div>
-                    <div style={{ width: 50, textAlign: 'center' }}>{tarifa.alto || '-'}</div>
-                    <div style={{ width: 70, textAlign: 'right' }}>{tarifa.precio != null ? `${Number(tarifa.precio).toFixed(2)} €` : '-'}</div>
-                  </div>
-                );
-              }}
-            </List>
+              rowComponent={TarifaVirtualRow}
+              rowCount={sortedTarifas.length}
+              rowHeight={42}
+              rowProps={{ items: sortedTarifas, copiedId, onCopy: copyToClipboard }}
+              overscanCount={8}
+              defaultHeight={450}
+              style={{ height: 450, overflow: 'auto' }}
+            />
           </div>
         </div>
       ) : null}
