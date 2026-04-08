@@ -493,7 +493,7 @@ router.get('/', authenticate, async (req, res) => {
                 tv.revision,
                 tv.is_active
             FROM tarifas t
-            JOIN proveedores p ON p.id = t.proveedor_id
+            INNER JOIN proveedores p ON p.id = t.proveedor_id
             LEFT JOIN tarifa_versiones tv ON tv.id = t.version_id
             ${whereSql}
             ORDER BY t.referencia ASC
@@ -520,7 +520,6 @@ router.get('/familias', authenticate, async (req, res) => {
         const result = await pool.query(`
             SELECT DISTINCT t.familia
             FROM tarifas t
-            LEFT JOIN tarifa_versiones tv ON tv.id = t.version_id
             ${whereSql}
             ORDER BY t.familia ASC
         `, params);

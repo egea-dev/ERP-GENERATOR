@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useDeferredValue } from 'react';
+import { FixedSizeList as List } from 'react-window';
 import * as XLSX from 'xlsx';
 import { dbService } from '../../dbService';
 import { detectColumn, generateTarifaRef } from '../../config/erp_constants';
@@ -243,6 +244,7 @@ export default function ViewTarifas() {
   const [resultadosBusqueda, setResultadosBusqueda] = useState([]);
   const [buscando, setBuscando] = useState(false);
   const { addToast } = useToast();
+  const deferredBusqueda = useDeferredValue(busquedaGlobal);
 
   const loadProveedores = async () => {
     try {
@@ -280,10 +282,10 @@ export default function ViewTarifas() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      buscarTarifas(busquedaGlobal);
+      buscarTarifas(deferredBusqueda);
     }, 300);
     return () => clearTimeout(timer);
-  }, [busquedaGlobal]);
+  }, [deferredBusqueda]);
 
   const handleEliminar = async (id, nombre) => {
     if (!confirm(`¿Eliminar el proveedor "${nombre}" y todas sus versiones de tarifas?`)) return;
@@ -740,6 +742,8 @@ function ViewVersionesTarifas({ proveedor, onVolver, addToast }) {
   const [downloadLoading, setDownloadLoading] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
 
+  const deferredSearch = useDeferredValue(filtros.search);
+
   const loadVersions = async (preferredVersionId) => {
     try {
       setLoadingVersions(true);
@@ -806,7 +810,7 @@ function ViewVersionesTarifas({ proveedor, onVolver, addToast }) {
       try {
         setLoadingTarifas(true);
         const [tarifasData, familiasData] = await Promise.all([
-          dbService.getTarifas({ version_id: selectedVersionId, familia: filtros.familia, search: filtros.search }),
+          dbService.getTarifas({ version_id: selectedVersionId, familia: filtros.familia, search: deferredSearch }),
           dbService.getFamilias({ version_id: selectedVersionId }),
         ]);
         setTarifas(tarifasData || []);
@@ -819,7 +823,7 @@ function ViewVersionesTarifas({ proveedor, onVolver, addToast }) {
     };
 
     loadTarifas();
-  }, [selectedVersionId, filtros]);
+  }, [selectedVersionId, filtros.familia, deferredSearch]);
 
   const activateVersion = async () => {
     if (!selectedVersionId || !selectedVersion || selectedVersion.is_active) return;
@@ -994,44 +998,46 @@ function ViewVersionesTarifas({ proveedor, onVolver, addToast }) {
           No hay tarifas para los filtros seleccionados
         </div>
       ) : selectedVersion ? (
-        <div style={{ border: '1px solid var(--br)', borderRadius: 8, height: 500, overflow: 'auto' }}>
-          <table style={{ minWidth: 900, width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-            <thead>
-              <tr style={{ background: 'var(--bg2)', borderBottom: '2px solid var(--br)', position: 'sticky', top: 0 }}>
-                <th style={{ padding: '10px 8px', textAlign: 'left', color: 'var(--fg2)' }}>Referencia</th>
-                <th style={{ padding: '10px 8px', textAlign: 'left', color: 'var(--fg2)' }}>Artículo</th>
-                <th style={{ padding: '10px 8px', textAlign: 'left', color: 'var(--fg2)' }}>Nombre original</th>
-                <th style={{ padding: '10px 8px', textAlign: 'left', color: 'var(--fg2)' }}>Serie</th>
-                <th style={{ padding: '10px 8px', textAlign: 'left', color: 'var(--fg2)' }}>Clave</th>
-                <th style={{ padding: '10px 8px', textAlign: 'left', color: 'var(--fg2)' }}>Familia</th>
-                <th style={{ padding: '10px 8px', textAlign: 'center', color: 'var(--fg2)' }}>Ancho</th>
-                <th style={{ padding: '10px 8px', textAlign: 'center', color: 'var(--fg2)' }}>Alto</th>
-                <th style={{ padding: '10px 8px', textAlign: 'right', color: 'var(--fg2)' }}>Precio</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tarifas.map((tarifa, index) => (
-                <tr key={tarifa.id} style={{ borderBottom: '1px solid var(--br)', background: index % 2 ? 'var(--bg2)' : 'transparent' }}>
-                  <td
-                    style={{ padding: '8px', fontWeight: 600, color: 'var(--acc)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}
-                    onClick={() => copyToClipboard(tarifa.referencia, tarifa.id)}
-                    title="Clic para copiar"
-                  >
-                    {tarifa.referencia}
-                    {copiedId === tarifa.id ? <span style={{ color: '#52c97e', fontSize: 10 }}>✓</span> : null}
-                  </td>
-                  <td style={{ padding: '8px' }}>{tarifa.articulo || '-'}</td>
-                  <td style={{ padding: '8px', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={tarifa.descripcion || ''}>{tarifa.descripcion || '-'}</td>
-                  <td style={{ padding: '8px' }}>{tarifa.serie || '-'}</td>
-                  <td style={{ padding: '8px', fontSize: 11, fontFamily: 'var(--mono)' }}>{tarifa.clave_descripcion || '-'}</td>
-                  <td style={{ padding: '8px' }}>{tarifa.familia || '-'}</td>
-                  <td style={{ padding: '8px', textAlign: 'center' }}>{tarifa.ancho ?? '-'}</td>
-                  <td style={{ padding: '8px', textAlign: 'center' }}>{tarifa.alto || '-'}</td>
-                  <td style={{ padding: '8px', textAlign: 'right' }}>{tarifa.precio !== null && tarifa.precio !== undefined ? `${Number(tarifa.precio).toFixed(2)} €` : '-'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div style={{ border: '1px solid var(--br)', borderRadius: 8, height: 500, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ background: 'var(--bg2)', borderBottom: '2px solid var(--br)', display: 'flex', padding: '10px 8px' }}>
+            <div style={{ width: 120, color: 'var(--fg2)', fontSize: 12, fontWeight: 600 }}>Referencia</div>
+            <div style={{ width: 100, color: 'var(--fg2)', fontSize: 12, fontWeight: 600 }}>Artículo</div>
+            <div style={{ width: 180, color: 'var(--fg2)', fontSize: 12, fontWeight: 600 }}>Nombre original</div>
+            <div style={{ width: 80, color: 'var(--fg2)', fontSize: 12, fontWeight: 600 }}>Serie</div>
+            <div style={{ width: 120, color: 'var(--fg2)', fontSize: 12, fontWeight: 600 }}>Clave</div>
+            <div style={{ width: 60, color: 'var(--fg2)', fontSize: 12, fontWeight: 600 }}>Familia</div>
+            <div style={{ width: 50, textAlign: 'center', color: 'var(--fg2)', fontSize: 12, fontWeight: 600 }}>Ancho</div>
+            <div style={{ width: 50, textAlign: 'center', color: 'var(--fg2)', fontSize: 12, fontWeight: 600 }}>Alto</div>
+            <div style={{ width: 70, textAlign: 'right', color: 'var(--fg2)', fontSize: 12, fontWeight: 600 }}>Precio</div>
+          </div>
+          <div style={{ flex: 1 }}>
+            <List
+              height={450}
+              itemCount={tarifas.length}
+              itemSize={42}
+              width="100%"
+              style={{ overflow: 'auto' }}
+            >
+              {({ index, style }) => {
+                const tarifa = tarifas[index];
+                return (
+                  <div style={{ ...style, display: 'flex', padding: '8px', borderBottom: '1px solid var(--br)', background: index % 2 ? 'var(--bg2)' : 'transparent', alignItems: 'center' }}>
+                    <div style={{ width: 120, fontWeight: 600, color: 'var(--acc)', cursor: 'pointer' }} onClick={() => copyToClipboard(tarifa.referencia, tarifa.id)}>
+                      {tarifa.referencia} {copiedId === tarifa.id ? <span style={{ color: '#52c97e', fontSize: 10 }}>✓</span> : null}
+                    </div>
+                    <div style={{ width: 100 }}>{tarifa.articulo || '-'}</div>
+                    <div style={{ width: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={tarifa.descripcion}>{tarifa.descripcion || '-'}</div>
+                    <div style={{ width: 80 }}>{tarifa.serie || '-'}</div>
+                    <div style={{ width: 120, fontSize: 11, fontFamily: 'var(--mono)' }}>{tarifa.clave_descripcion || '-'}</div>
+                    <div style={{ width: 60 }}>{tarifa.familia || '-'}</div>
+                    <div style={{ width: 50, textAlign: 'center' }}>{tarifa.ancho ?? '-'}</div>
+                    <div style={{ width: 50, textAlign: 'center' }}>{tarifa.alto || '-'}</div>
+                    <div style={{ width: 70, textAlign: 'right' }}>{tarifa.precio != null ? `${Number(tarifa.precio).toFixed(2)} €` : '-'}</div>
+                  </div>
+                );
+              }}
+            </List>
+          </div>
         </div>
       ) : null}
 
