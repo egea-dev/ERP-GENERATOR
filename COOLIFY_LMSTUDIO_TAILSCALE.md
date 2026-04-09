@@ -51,7 +51,7 @@ LMSTUDIO_DEFAULT_MODEL=nombre-exacto-del-modelo
 ```env
 DEFAULT_LLM_PROVIDER=lmstudio
 TS_HOSTNAME=erp-backend-ai
-TS_EXTRA_ARGS=--advertise-tags=tag:erp-ai
+TS_EXTRA_ARGS=
 TS_OUTBOUND_HTTP_PROXY_LISTEN=:1055
 TS_STATE_DIR=/var/lib/tailscale
 TS_USERSPACE=true
