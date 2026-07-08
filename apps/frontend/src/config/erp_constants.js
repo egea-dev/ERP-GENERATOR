@@ -325,13 +325,114 @@ export function decodeRef(ref) {
 
 const pad2 = (v) => (v ? String(v).padStart(2, "0") : "");
 
+function fitBlock(val, size) {
+  if (!val) return ''.padEnd(size, 'X');
+  return val.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, size).padEnd(size, 'X');
+}
+
+function fitMedida(val, size) {
+  if (!val) return ''.padEnd(size, '0');
+  const num = String(val).replace(/\D/g, '').slice(-size);
+  return num.padStart(size, '0');
+}
+
 export function buildRef(familia, tipo, variante, ancho, alto, coleccion, modelo, color, idTipo) {
-  if (!familia || !tipo) return "";
-  let id = "";
-  if (idTipo === "variante") id = variante || "";
-  else if (idTipo === "tamano") id = ancho && alto ? pad2(ancho) + pad2(alto) : "";
-  else if (idTipo === "modelo") id = (coleccion || "") + (modelo || "") + (color || "");
-  return (familia + tipo + id).toUpperCase();
+  if (!familia) return '';
+
+  const familiaBlock = fitBlock(familia, 2);
+  const tipoBlock = fitBlock(tipo, 3);
+
+  if (familia === 'TE') {
+    const colorBlock = fitMedida(color, 3);
+    const anchoBlock = fitMedida(ancho, 3);
+    return `${familiaBlock}${tipoBlock}${colorBlock}${anchoBlock}`;
+  }
+
+  const med1 = String(ancho || '0').replace(/\D/g, '').slice(-3);
+  const med2 = String(alto || '0').replace(/\D/g, '').slice(-3);
+
+  const base = `${familiaBlock}${tipoBlock}${med1}X${med2}`;
+
+  if (base.length > 10) {
+    const maxMedLen = Math.floor((10 - 6) / 2);
+    const truncMed1 = med1.slice(-maxMedLen);
+    const truncMed2 = med2.slice(-maxMedLen);
+    return `${familiaBlock}${tipoBlock}${truncMed1}X${truncMed2}`;
+  }
+
+  return base;
+}
+
+export function decodeRef(ref) {
+  const u = String(ref || '').toUpperCase().replace(/\s/g, '').replace(/x/g, 'X');
+  if (!u.includes('X') && u.length !== 13) return null;
+
+  const familyBlock = u.slice(0, 2);
+  const fam = FAMILIAS.find(f => f.codigo === familyBlock) || null;
+
+  if (!fam) return null;
+
+  if (familyBlock === 'TE' && u.length === 13) {
+    return {
+      familia: 'TE',
+      tipo: u.slice(2, 5),
+      color: u.slice(5, 8),
+      ancho: u.slice(8, 11),
+      familiaObj: fam
+    };
+  }
+
+  const xIndex = u.indexOf('X');
+  const medida1 = u.slice(5, xIndex);
+  const medida2 = u.slice(xIndex + 1);
+
+  return {
+    familia: familyBlock,
+    tipo: u.slice(2, 5),
+    medida1,
+    medida2,
+    familiaObj: fam
+  };
+}
+
+export function isValidRef(ref) {
+  const u = String(ref || '').trim().toUpperCase().replace(/\s/g, '').replace(/x/g, 'X');
+  if (u.includes('X')) {
+    const xIndex = u.indexOf('X');
+    if (u.length < 8 || u.length > 12) return false;
+    const ff = u.slice(0, 2);
+    const ttt = u.slice(2, xIndex);
+    const m = u.slice(xIndex + 1);
+    if (!/^[A-Z]{2}$/.test(ff)) return false;
+    if (!/^[A-Z0-9]{3}$/.test(ttt)) return false;
+    if (!/^[0-9]{1,3}$/.test(m)) return false;
+    return true;
+  }
+  if (u.length === 13) {
+    return /^[A-Z]{2}[A-Z0-9]{3}[0-9]{3}[0-9]{3}$/.test(u);
+  }
+  return false;
+}
+
+export function refToDescripcion(ref) {
+  const decoded = decodeRef(ref);
+  if (!decoded) return null;
+
+  const { familia, tipo, medida1, medida2, familiaObj } = decoded;
+
+  const tipoObj = TIPOS.find(t => t.codigo === tipo && t.familia === familia);
+  const tipoDesc = tipoObj ? tipoObj.desc : tipo;
+
+  let desc = tipoDesc;
+
+  if (medida1 && medida1 !== '0') {
+    desc += ` ${medida1}`;
+    if (medida2 && medida2 !== '0') {
+      desc += `X${medida2}`;
+    }
+  }
+
+  return desc;
 }
 
 // ─── GENERADOR DE TARIFAS ──────────────────────────────────────────────────────

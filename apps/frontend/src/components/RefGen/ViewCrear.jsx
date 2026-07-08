@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import * as XLSX from 'xlsx';
-import { FAMILIAS, TIPOS, VARIANTES, KW, norm, analyzeText, buildRef, decodeRef, resolveIdTipo } from "../../config/erp_constants";
+import { FAMILIAS, TIPOS, VARIANTES, KW, norm, analyzeText, buildRef, decodeRef, resolveIdTipo, refToDescripcion } from "../../config/erp_constants";
 import { dbService } from '../../dbService';
 import { useAuth } from '../../context/AuthContext';
 
@@ -74,9 +74,11 @@ export default function ViewCrear({ db, addArt, onLoadArt }) {
   }, [onLoadArt]);
 
   const isCode = useMemo(() => {
-    const u = text.trim().toUpperCase();
-    const sorted = [...FAMILIAS].sort((a, b) => b.codigo.length - a.codigo.length);
-    return u.length >= 5 && !/\s/.test(u) && sorted.some((f) => u.startsWith(f.codigo));
+    const u = text.trim().toUpperCase().replace(/\s/g, "").replace(/x/g, 'X');
+    if ((u.length >= 8 && u.length <= 12 && u.includes('X')) || u.length === 13) {
+      return /^[A-Z]{2}[A-Z0-9]{3}/.test(u);
+    }
+    return false;
   }, [text]);
 
   useEffect(() => {
@@ -135,10 +137,10 @@ export default function ViewCrear({ db, addArt, onLoadArt }) {
   );
 
   const refLen = ref.length;
-  const isOver = refLen > 15;
+  const isOver = refLen > 0 && refLen > 12;
   const isDup = db.some((a) => a.ref === ref && ref !== "");
   const refState = isOver ? "over" : isDup ? "dup" : ref ? "ok" : "";
-  const canSave = ref && !isOver && !isDup && text.trim() && !saved;
+  const canSave = ref && refLen >= 8 && refLen <= 13 && !isDup && text.trim() && !saved;
 
   const similar = useMemo(
     () => db.filter((a) => a.familia === familia && a.tipo === tipo && a.ref !== ref).slice(0, 6),
@@ -243,17 +245,19 @@ export default function ViewCrear({ db, addArt, onLoadArt }) {
   return (
     <div className="main">
       <div className="stitle">Generador de Referencias ERP</div>
-      <div className="card" style={{ marginBottom: 20, borderLeft: '4px solid var(--acc)' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <div className="mod-field">
-            <label className="mod-lbl" style={{ color: 'var(--acc)', fontSize: 11 }}>DESCRIPCION DEL ARTICULO (ANALISIS AUTOMATICO)</label>
-            <textarea ref={ref_} className="big-area" rows={2} autoFocus
-              style={{ fontSize: 18, padding: '12px 15px', borderBottom: '2px solid var(--br2)' }}
-              placeholder={"Ej: cojin 60x60 silla cerrada..."}
-              value={text} onChange={(e) => { setText(e.target.value); setSaved(false); }} />
-            <div className={`area-hint ${isCode ? "code" : ""} `} style={{ marginTop: 8 }}>
-              {isCode ? "REFERENCIA DETECTADA" : "Detección inteligente de familia y medidas activa"}
-            </div>
+      <div className="card" style={{ marginBottom: 20, borderLeft: '4px solid var(--acc)', padding: '16px 20px', minHeight: 140 }}>
+        <label className="mod-lbl" style={{ color: 'var(--acc)', fontSize: 11, marginBottom: 8, display: 'block' }}>DESCRIPCION DEL ARTICULO (ANALISIS AUTOMATICO)</label>
+        <textarea ref={ref_} className="big-area"
+          style={{ fontSize: 18, height: 80 }}
+          placeholder={"Ej: cojin simple 50x50, sofa 3 plazas 80x200..."}
+          value={text} onChange={(e) => { setText(e.target.value); setSaved(false); }} />
+        <div style={{ marginTop: 8, minHeight: 24, display: 'flex', alignItems: 'center' }}>
+          <div className={`area-hint ${isCode ? "code" : ""} `} style={{ fontSize: 16, fontWeight: 700 }}>
+            {isCode ? (
+              <span>
+                REFERENCIA DETECTADA → {refToDescripcion(text) || '?'}
+              </span>
+            ) : "Deteccion inteligente de familia y medidas activa"}
           </div>
         </div>
       </div>
@@ -264,20 +268,19 @@ export default function ViewCrear({ db, addArt, onLoadArt }) {
             <div className="rp-lbl">REFERENCIA DE ARTICULO GENERADA</div>
             <div className={`rp-code ${refState} `} style={{ fontSize: 36 }}>{ref}</div>
             <div className="rp-segs" style={{ marginTop: 15 }}>
-              {familia && <span className="seg seg-f" style={{ fontSize: 12, padding: '4px 10px' }}>{familia}</span>}
-              {tipo && <span className="seg seg-t" style={{ fontSize: 12, padding: '4px 10px' }}>{tipo}</span>}
-              {ref.slice(familia.length + tipo.length) &&
-                <span className="seg seg-i" style={{ fontSize: 12, padding: '4px 10px' }}>{ref.slice(familia.length + tipo.length)}</span>}
+              <span className="seg seg-f" style={{ fontSize: 12, padding: '4px 10px' }}>FF {ref.slice(0, 2)}</span>
+              <span className="seg seg-t" style={{ fontSize: 12, padding: '4px 10px' }}>TTT {ref.slice(2, ref.indexOf('X') > -1 ? ref.indexOf('X') : 5)}</span>
+              <span className="seg seg-i" style={{ fontSize: 12, padding: '4px 10px' }}>MED {ref.indexOf('X') > -1 ? ref.slice(ref.indexOf('X') + 1) : ''}</span>
             </div>
           </div>
           <div className="rp-right">
             <div className={`rp-len ${refState === "ok" ? "ok" : refState === "over" ? "over" : ""} `}>{refLen}</div>
-            <div className="rp-sub">ESTRICTO 15</div>
+            <div className="rp-sub">MAX 10</div>
           </div>
         </div>
       )}
 
-      {isOver && <div className="alert a-e" style={{ marginTop: 15 }}>Error: Se superan los 15 caracteres.</div>}
+      {isOver && <div className="alert a-e" style={{ marginTop: 15 }}>Error: la referencia debe tener maximo 12 caracteres (formato FF TTT M X N).</div>}
       {isDup && !isOver && <div className="alert a-w" style={{ marginTop: 15 }}>Aviso: Referencia ya existente en el historial.</div>}
       {saved && <div className="alert a-ok" style={{ marginTop: 15 }}>Referencia guardada correctamente.</div>}
 
@@ -466,6 +469,13 @@ export default function ViewCrear({ db, addArt, onLoadArt }) {
           </div>
         </div>
       )}
+
+      <div style={{ fontSize: 12, color: '#888', marginTop: 24, lineHeight: 1.6 }}>
+        Escribe una descripción del artículo (por ejemplo: <em>"cojín simple 50x50"</em>) y el sistema generará automáticamente la referencia.
+        <br />A medida que escribas, aparecerán opciones para ayudarte a seleccionar la <strong>familia</strong>, <strong>tipo</strong> y <strong>medidas</strong>.
+        <br />También puedes pegar una referencia existente para ver sus datos decodificados.
+        <br /><strong>Formato:</strong> <span style={{ fontFamily: 'monospace', background: 'var(--br2)', padding: '2px 6px', borderRadius: 3 }}>FF + TIPO + medida × medida</span> → Ej: CUCOJ50X50
+      </div>
 
       {showPreview && (
         <div style={{
