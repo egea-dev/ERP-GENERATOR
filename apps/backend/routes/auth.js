@@ -5,16 +5,11 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { Pool } = require('pg');
-const { v4: uuidv4 } = require('uuid');
-
-const JWT_SECRET = process.env.JWT_SECRET || 'default-dev-secret';
-console.log('>>> [AUTH] JWT_SECRET:', JWT_SECRET);
+const { JWT_SECRET } = require('../config');
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
 });
-
-console.log('>>> [AUTH] JWT_SECRET:', JWT_SECRET);
 
 // Middleware de autenticación
 const authenticate = (req, res, next) => {
@@ -68,22 +63,30 @@ router.post('/login', async (req, res) => {
         const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '24h' });
         res.json({ token, user: { id: user.id, email: user.email, full_name: user.full_name } });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[AUTH] Login error:', err.message);
+        res.status(500).json({ error: 'Error interno del servidor' });
     }
 });
 
 // Registro (solo admin)
 router.post('/register', authenticate, requireAdmin, async (req, res) => {
     const { email, password, full_name } = req.body;
+    if (!email || !password || !full_name) {
+        return res.status(400).json({ error: 'Email, password y full_name son obligatorios' });
+    }
+    if (password.length < 8) {
+        return res.status(400).json({ error: 'La contraseña debe tener al menos 8 caracteres' });
+    }
     try {
-        const password_hash = await bcrypt.hash(password, 10);
+        const password_hash = await bcrypt.hash(password, 12);
         const result = await pool.query(
             'INSERT INTO users (email, password_hash, full_name) VALUES ($1, $2, $3) RETURNING id, email, full_name',
             [email, password_hash, full_name]
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[AUTH] Register error:', err.message);
+        res.status(500).json({ error: 'Error interno del servidor' });
     }
 });
 
@@ -113,7 +116,7 @@ router.get('/role/:userId', authenticate, async (req, res) => {
         res.json({ role: result.rows[0].role });
     } catch (err) {
         console.error('[AUTH] Error getting role:', err.message);
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: 'Error interno del servidor' });
     }
 });
 
@@ -136,6 +139,9 @@ router.get('/profiles', authenticate, requireAdmin, async (req, res) => {
 router.put('/users/:userId/role', authenticate, requireAdmin, async (req, res) => {
     const { userId } = req.params;
     const { role } = req.body;
+    if (!['admin', 'editor', 'user'].includes(role)) {
+        return res.status(400).json({ error: 'Rol no permitido' });
+    }
     try {
         const result = await pool.query(
             `INSERT INTO user_roles (user_id, role) VALUES ($1, $2) 
@@ -144,7 +150,8 @@ router.put('/users/:userId/role', authenticate, requireAdmin, async (req, res) =
         );
         res.json(result.rows[0]);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[AUTH] Update role error:', err.message);
+        res.status(500).json({ error: 'Error interno del servidor' });
     }
 });
 
@@ -155,7 +162,8 @@ router.delete('/users/:userId', authenticate, requireAdmin, async (req, res) => 
         await pool.query('DELETE FROM users WHERE id = $1', [userId]);
         res.json({ success: true });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[AUTH] Delete user error:', err.message);
+        res.status(500).json({ error: 'Error interno del servidor' });
     }
 });
 

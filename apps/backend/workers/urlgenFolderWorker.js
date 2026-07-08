@@ -2,7 +2,13 @@ require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') }
 
 const os = require('os');
 const { Pool } = require('pg');
-const { assertSmbConfig, createFolderTree, cleanupSmbAuthFile } = require('../services/urlgenSmb');
+
+const IS_WINDOWS = os.platform() === 'win32';
+const smbModule = IS_WINDOWS
+    ? require('../services/urlgenSmbWindows')
+    : require('../services/urlgenSmb');
+
+const { assertSmbConfig, createFolderTree, cleanupSmbAuthFile } = smbModule;
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
@@ -21,7 +27,8 @@ let isProcessing = false;
 
 function log(message, details = null) {
     const suffix = details ? ` ${JSON.stringify(details)}` : '';
-    console.log(`[URLGEN-WORKER] ${message}${suffix}`);
+    const platformTag = IS_WINDOWS ? '[WIN]' : '[LIN]';
+    console.log(`[URLGEN-WORKER${platformTag}] ${message}${suffix}`);
 }
 
 async function insertSystemLog(actionType, details = {}) {
@@ -177,7 +184,9 @@ async function shutdown(signal) {
         intervalId = null;
     }
 
-    await cleanupSmbAuthFile();
+    if (cleanupSmbAuthFile) {
+        await cleanupSmbAuthFile();
+    }
     await pool.end();
     process.exit(0);
 }
@@ -186,6 +195,8 @@ async function start() {
     assertSmbConfig();
     log('Worker privado iniciado', {
         worker_id: WORKER_ID,
+        platform: IS_WINDOWS ? 'Windows' : 'Linux',
+        smb_module: IS_WINDOWS ? 'urlgenSmbWindows' : 'urlgenSmb',
         poll_ms: POLL_INTERVAL_MS,
         subfolders: DEFAULT_SUBFOLDERS,
     });

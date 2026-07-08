@@ -1,7 +1,7 @@
 .calculadora-layout {
   display: grid;
-  grid-template-columns: 240px 1fr;
-  gap: 12px;
+  grid-template-columns: minmax(220px, 250px) minmax(0, 1fr);
+  gap: 18px;
   align-items: start;
 }
 
@@ -23,13 +23,15 @@
 .calculadora-tabs {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 }
 
 .calculadora-tab {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  width: 100%;
+  min-height: 46px;
   padding: 8px 10px;
   border: none;
   background: transparent;
@@ -51,9 +53,26 @@
   color: white;
 }
 
-.calculadora-tab span:first-child {
-  font-size: 14px;
+.calculadora-tab-icon {
+  width: 22px;
+  height: 22px;
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--acc);
+  border-radius: 4px;
+  background: rgba(var(--acc-rgb), 0.08);
+}
+
+.calculadora-tab:hover .calculadora-tab-icon,
+.calculadora-tab.active .calculadora-tab-icon {
+  color: currentColor;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.calculadora-tab-icon svg {
+  display: block;
 }
 
 .calculadora-tab div {
@@ -75,6 +94,9 @@
   font-size: 8px;
   color: var(--tx3);
   line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .calculadora-tab.active .chip-sub {
@@ -342,6 +364,18 @@
 @media (max-width: 768px) {
   .calculadora-layout {
     grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .calculadora-tabs {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 8px;
+  }
+
+  .calc-category-title {
+    grid-column: 1 / -1;
+    margin-top: 8px;
   }
 
   .calc-material-row {

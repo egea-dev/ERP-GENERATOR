@@ -232,11 +232,6 @@ INSERT INTO public.panel_config (panel_id, panel_name, enabled, visible_roles, s
 ('envios', 'ENVÍOS', true, '{admin,editor,user}', 5)
 ON CONFLICT (panel_id) DO NOTHING;
 
--- Usuario admin por defecto (password: Admin123!)
-INSERT INTO public.users (email, password_hash, full_name) VALUES
-('admin@egeadev.cloud', '$2b$10$/V7ISz/WMnwY5J/x1ERuIejzi50HFbNkwZqfZKEirtgyD3uDLiCMK', 'Administrador')
-ON CONFLICT (email) DO NOTHING;
-
-INSERT INTO public.user_roles (user_id, role) VALUES
-((SELECT id FROM public.users WHERE email = 'admin@egeadev.cloud'), 'admin')
-ON CONFLICT DO NOTHING;
+-- No se crea usuario admin por defecto.
+-- Crea el primer administrador desde variables de entorno del backend:
+-- ADMIN_EMAIL, ADMIN_PASSWORD y opcionalmente ADMIN_FULL_NAME.

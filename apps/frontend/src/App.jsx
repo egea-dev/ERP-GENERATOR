@@ -217,7 +217,7 @@ function Dashboard() {
             style={{ background: 'rgba(240, 192, 64, 0.1)', color: 'var(--acc)', border: '1px solid var(--acc2)' }}>
             REPORTAR INCIDENCIA
           </button>
-          {(role === 'admin' || user?.email === 'admin@oko.com') && (
+          {role === 'admin' && (
             <button className={`nav-btn ${showAdmin ? 'on' : ''}`}
               onClick={() => setShowAdmin(!showAdmin)}
               style={{ border: '1px solid var(--acc2)', color: 'var(--acc2)', fontSize: 9, fontWeight: 700 }}>

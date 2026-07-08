@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState } from 'react';
 import { dbService } from '../../dbService';
 import './Calculadora.css';
 import MargenCalculator from './subcomponents/MargenCalculator';
@@ -17,41 +17,45 @@ import ConversorMoneda from './subcomponents/ConversorMoneda';
 import IluminacionCalculator from './subcomponents/IluminacionCalculator';
 import AreaParedCalculator from './subcomponents/AreaParedCalculator';
 import EscaleraCalculator from './subcomponents/EscaleraCalculator';
+import AppIcon from '../shared/AppIcon';
+
+const CALCULATOR_CATEGORIES = {
+    comercial: [
+        { id: 'margen', title: 'Margen', icon: 'coin', desc: 'Precio con margen' },
+        { id: 'descuentos', title: 'Dto. Volumen', icon: 'tag', desc: 'Descuentos' },
+        { id: 'presupuesto', title: 'Presupuesto', icon: 'clipboard', desc: 'Materiales+horas' },
+        { id: 'preciohora', title: 'Precio Hora', icon: 'clock', desc: 'Coste/hora' }
+    ],
+    decoracion: [
+        { id: 'cortinero', title: 'Cortineros', icon: 'curtains', desc: 'Tela cortinas' },
+        { id: 'papel', title: 'Papel Pintado', icon: 'document', desc: 'Rollos pared' },
+        { id: 'suelo', title: 'Suelo', icon: 'floor', desc: 'Instalación' },
+        { id: 'persianas', title: 'Persianas', icon: 'curtains', desc: 'Precio est.' },
+        { id: 'rodapies', title: 'Rodapiés', icon: 'brick', desc: 'Materiales' }
+    ],
+    cantidad: [
+        { id: 'cantidad', title: 'Cantidad', icon: 'ruler', desc: 'Con merma' }
+    ],
+    conversores: [
+        { id: 'unidades', title: 'Unidades', icon: 'refresh', desc: 'm²↔ml, kg↔ud' },
+        { id: 'medidas', title: 'Medidas', icon: 'measure', desc: 'cm↔pulg' },
+        { id: 'moneda', title: 'Moneda', icon: 'currency', desc: 'EUR↔USD' }
+    ],
+    otros: [
+        { id: 'iluminacion', title: 'Iluminación', icon: 'bulb', desc: 'Watts/hab' },
+        { id: 'pared', title: 'Área Pared', icon: 'brick', desc: 'Pintura' },
+        { id: 'escalera', title: 'Escalera', icon: 'stairs', desc: 'Escalones' }
+    ]
+};
+
+const CATEGORY_ITEMS = Object.entries(CALCULATOR_CATEGORIES).map(([category, items]) => ({
+    category,
+    items
+}));
 
 export default function CalculadoraPanel() {
     const [activeCalculator, setActiveCalculator] = useState('margen');
-    const [history, setHistory] = useState([]);
-    const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
-
-    const calculatorCategories = {
-        comercial: [
-            { id: 'margen', title: 'Margen', icon: '💰', desc: 'Precio con margen' },
-            { id: 'descuentos', title: 'Dto. Volumen', icon: '🏷️', desc: 'Descuentos' },
-            { id: 'presupuesto', title: 'Presupuesto', icon: '📋', desc: 'Materiales+horas' },
-            { id: 'preciohora', title: 'Precio Hora', icon: '⏰', desc: 'Coste/hora' }
-        ],
-        decoracion: [
-            { id: 'cortinero', title: 'Cortineros', icon: '🪟', desc: 'Tela cortinas' },
-            { id: 'papel', title: 'Papel Pintado', icon: '📄', desc: 'Rollos pared' },
-            { id: 'suelo', title: 'Suelo', icon: '🪵', desc: 'Instalación' },
-            { id: 'persianas', title: 'Persianas', icon: '🪟', desc: 'Precio est.' },
-            { id: 'rodapies', title: 'Rodapiés', icon: '🧱', desc: 'Materiales' }
-        ],
-        cantidad: [
-            { id: 'cantidad', title: 'Cantidad', icon: '📐', desc: 'Con merma' }
-        ],
-        conversores: [
-            { id: 'unidades', title: 'Unidades', icon: '🔄', desc: 'm²↔ml, kg↔ud' },
-            { id: 'medidas', title: 'Medidas', icon: '📏', desc: 'cm↔pulg' },
-            { id: 'moneda', title: 'Moneda', icon: '💱', desc: 'EUR↔USD' }
-        ],
-        otros: [
-            { id: 'iluminacion', title: 'Iluminación', icon: '💡', desc: 'Watts/hab' },
-            { id: 'pared', title: 'Área Pared', icon: '🧱', desc: 'Pintura' },
-            { id: 'escalera', title: 'Escalera', icon: '🪜', desc: 'Escalones' }
-        ]
-    };
 
     const calculatorMap = {
         margen: MargenCalculator,
@@ -72,30 +76,15 @@ export default function CalculadoraPanel() {
         escalera: EscaleraCalculator
     };
 
-    const categoryItems = useMemo(() => {
-        return Object.entries(calculatorCategories).map(([category, items]) => ({
-            category,
-            items
-        }));
-    }, []);
-
     const loadHistory = async () => {
-        setIsLoading(true);
         setError(null);
         try {
-            const data = await dbService.getCalculatorHistory(null, 20);
-            setHistory(data);
+            await dbService.getCalculatorHistory(null, 20);
         } catch (err) {
             setError('Error historial');
             console.error('[CALCULADORA] Error loading history:', err);
-        } finally {
-            setIsLoading(false);
         }
     };
-
-    useEffect(() => {
-        loadHistory();
-    }, []);
 
     const handleSaveCalculation = async (type, inputs, outputs) => {
         try {
@@ -112,7 +101,7 @@ export default function CalculadoraPanel() {
         <div className="calculadora-layout">
             <div className="calculadora-sidebar">
                 <div className="calculadora-tabs">
-                    {categoryItems.map(({ category, items }) => (
+                    {CATEGORY_ITEMS.map(({ category, items }) => (
                         <div key={category}>
                             <div className="calc-category-title">{category}</div>
                             {items.map(item => (
@@ -121,7 +110,9 @@ export default function CalculadoraPanel() {
                                     className={`calculadora-tab ${activeCalculator === item.id ? 'active' : ''}`}
                                     onClick={() => setActiveCalculator(item.id)}
                                 >
-                                    <span>{item.icon}</span>
+                                    <span className="calculadora-tab-icon">
+                                        <AppIcon name={item.icon} size={15} />
+                                    </span>
                                     <div>
                                         <div>{item.title}</div>
                                         <div className="chip-sub">{item.desc}</div>
@@ -137,7 +128,7 @@ export default function CalculadoraPanel() {
                 <div className="calculadora-header">
                     <h2>
                         {calculatorMap[activeCalculator] ?
-                            Object.values(calculatorCategories).flat().find(c => c.id === activeCalculator)?.title || 'Calculadora'
+                            Object.values(CALCULATOR_CATEGORIES).flat().find(c => c.id === activeCalculator)?.title || 'Calculadora'
                             : 'Calculadora'}
                     </h2>
                     <button

@@ -3,30 +3,32 @@ import { dbService } from '../dbService';
 
 const AuthContext = createContext();
 
+const BYPASS_AUTH = true;
+
 export function AuthProvider({ children }) {
-    const [user, setUser] = useState(null);
-    const [role, setRole] = useState(null);
-    const [loading, setLoading] = useState(true);
+    const [user, setUser] = useState(BYPASS_AUTH ? { id: 1, email: 'admin.local@example.com' } : null);
+    const [role, setRole] = useState(BYPASS_AUTH ? 'admin' : null);
+    const [loading, setLoading] = useState(false);
 
-    useEffect(() => {
-        async function checkUser() {
-            try {
-                const { user: currentUser } = await dbService.getCurrentSession();
-                setUser(currentUser);
-                if (currentUser) {
-                    const userRole = await dbService.getUserRole(currentUser.id);
-                    setRole(userRole);
+    if (!BYPASS_AUTH) {
+        useEffect(() => {
+            async function checkUser() {
+                try {
+                    const { user: currentUser } = await dbService.getCurrentSession();
+                    setUser(currentUser);
+                    if (currentUser) {
+                        const userRole = await dbService.getUserRole(currentUser.id);
+                        setRole(userRole);
+                    }
+                } catch (error) {
+                    console.error("Error al recuperar sesión:", error);
+                } finally {
+                    setLoading(false);
                 }
-            } catch (error) {
-                console.error("Error al recuperar sesión:", error);
-            } finally {
-                setLoading(false);
             }
-        }
-
-        // Al cargar la SPA, verificamos si ya habría sesión guardada
-        checkUser();
-    }, []);
+            checkUser();
+        }, []);
+    }
 
     const login = async (email, password) => {
         setLoading(true);

@@ -275,7 +275,7 @@ export default function Backoffice({ tab, setTab }) {
                                         onClick={(e) => { e.stopPropagation(); handleArchiveTicket(t.id); }}
                                         title="Confirmar resolución y archivar"
                                             style={{ background: '#52c97e', border: 'none', borderRadius: 6, color: 'var(--bg)', fontWeight: 900, fontSize: 14, width: 30, height: 30, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 10px #52c97e88' }}
-                                    >✓</button>
+                                    ><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></button>
                                 )}
                             </div>
                             <div style={{ fontSize: 9, marginTop: 4, fontWeight: 700, opacity: 0.8, color: t.estado === 'Resuelto' ? '#52c97e' : 'inherit' }}>{t.estado.toUpperCase()}</div>

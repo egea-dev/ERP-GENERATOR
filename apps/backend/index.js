@@ -2,7 +2,7 @@ require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
-const { JWT_SECRET, PORT, CORS_ORIGIN } = require('./config');
+const { JWT_SECRET, PORT, CORS_ORIGIN, isProd } = require('./config');
 
 const chatRouter = require('./routes/chat');
 const healthRouter = require('./routes/health');
@@ -23,7 +23,19 @@ const app = express();
     await seedAdminUser();
 })().catch((err) => console.error('[STARTUP] Error:', err.message));
 
+// Seguridad HTTP basica sin dependencias externas adicionales.
+app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    next();
+});
+
 // CORS
+if (isProd && (!CORS_ORIGIN || CORS_ORIGIN === '*')) {
+    throw new Error('CORS_ORIGIN must be explicit in production');
+}
+
 const corsOrigin = !CORS_ORIGIN || CORS_ORIGIN === '*'
     ? true
     : CORS_ORIGIN.split(',').map((origin) => origin.trim()).filter(Boolean);
@@ -33,6 +45,31 @@ app.use(cors({
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
 }));
+
+const loginAttempts = new Map();
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_MAX_ATTEMPTS = 20;
+
+function authLimiter(req, res, next) {
+    const now = Date.now();
+    const ip = req.ip || req.socket?.remoteAddress || 'unknown';
+    const current = loginAttempts.get(ip) || { count: 0, resetAt: now + LOGIN_WINDOW_MS };
+
+    if (current.resetAt <= now) {
+        current.count = 0;
+        current.resetAt = now + LOGIN_WINDOW_MS;
+    }
+
+    current.count += 1;
+    loginAttempts.set(ip, current);
+
+    if (current.count > LOGIN_MAX_ATTEMPTS) {
+        res.setHeader('Retry-After', Math.ceil((current.resetAt - now) / 1000));
+        return res.status(429).json({ error: 'Demasiados intentos. Espera unos minutos e intentalo de nuevo.' });
+    }
+
+    next();
+}
 
 // Logger (sanitized)
 app.use((req, res, next) => {
@@ -80,6 +117,7 @@ const requireAdmin = async (req, res, next) => {
 };
 
 // Public Routes
+app.use('/api/auth/login', authLimiter);
 app.use('/api/auth', authRouter);
 
 // Protected Routes

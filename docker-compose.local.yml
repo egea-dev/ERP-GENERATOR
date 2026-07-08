@@ -1,0 +1,17 @@
+services:
+  db:
+    image: ankane/pgvector:latest
+    container_name: erp-local-db
+    restart: unless-stopped
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: CAMBIA_ESTA_CLAVE
+      POSTGRES_DB: erp_generator
+    volumes:
+      - pgdata-local:/var/lib/postgresql/data
+      - ./database/00_standalone_postgres.sql:/docker-entrypoint-initdb.d/00_standalone_postgres.sql:ro
+
+volumes:
+  pgdata-local:

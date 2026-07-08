@@ -1,5 +1,6 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
+const { JWT_SECRET } = require('../config');
 const {
     calculateMargen,
     calculateCantidad,
@@ -29,7 +30,7 @@ const authenticate = (req, res, next) => {
     if (!token) {
         return res.status(401).json({ error: 'No token provided' });
     }
-    jwt.verify(token, process.env.JWT_SECRET || 'default-secret', (err, user) => {
+    jwt.verify(token, JWT_SECRET, (err, user) => {
         if (err) {
             return res.status(403).json({ error: 'Token inválido' });
         }

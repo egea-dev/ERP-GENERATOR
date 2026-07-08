@@ -109,7 +109,7 @@ export default function TicketModal({ isOpen, onClose }) {
                             textAlign: 'center', padding: '40px 0',
                             color: 'var(--green)', fontFamily: 'var(--mono)'
                         }}>
-                            <div style={{ fontSize: 48, marginBottom: 10 }}>✓</div>
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: 10 }}><polyline points="20 6 9 17 4 12"></polyline></svg>
                             Ticket enviado correctamente.
                         </div>
                     ) : (

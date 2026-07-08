@@ -1,17 +1,29 @@
-const path = require('path');
-const fs = require('fs');
-
 const isProd = process.env.NODE_ENV === 'production';
 
-if (isProd && !process.env.JWT_SECRET) {
-    throw new Error('JWT_SECRET is required in production');
+function requireEnv(name, { productionOnly = false } = {}) {
+    const value = process.env[name];
+    if ((!productionOnly || isProd) && !value) {
+        throw new Error(`${name} is required${productionOnly ? ' in production' : ''}`);
+    }
+    return value;
+}
+
+function getJwtSecret() {
+    const value = requireEnv('JWT_SECRET', { productionOnly: true });
+    if (value) return value;
+
+    if (!process.env.SUPPRESS_DEV_SECRET_WARNING) {
+        console.warn('[CONFIG] JWT_SECRET no configurado. Usando clave temporal solo para desarrollo local.');
+    }
+    return 'dev-only-change-me-before-deploy';
 }
 
 module.exports = {
-    JWT_SECRET: process.env.JWT_SECRET || 'default-dev-secret',
+    isProd,
+    JWT_SECRET: getJwtSecret(),
     PORT: process.env.PORT || 3001,
-    DATABASE_URL: process.env.DATABASE_URL,
-    CORS_ORIGIN: process.env.CORS_ORIGIN,
+    DATABASE_URL: requireEnv('DATABASE_URL', { productionOnly: true }),
+    CORS_ORIGIN: process.env.CORS_ORIGIN || (isProd ? undefined : '*'),
     TARIFAS_API_BASE_URL: process.env.TARIFAS_API_BASE_URL,
     TARIFAS_API_KEY: process.env.TARIFAS_API_KEY,
 };

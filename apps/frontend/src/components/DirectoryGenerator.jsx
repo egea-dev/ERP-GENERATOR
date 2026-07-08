@@ -466,6 +466,12 @@ export default function DirectoryGenerator({ tab, setTab }) {
                 </button>
                 <button className="btn btn-g" style={{ padding: '12px 30px' }} onClick={clearForm}>NUEVO</button>
             </div>
+
+            <div style={{ fontSize: 12, color: '#888', marginTop: 24, lineHeight: 1.6 }}>
+                Este módulo genera <strong>rutas de directorios</strong> para organizar proyectos de artículos ERP.
+                <br />Combina un <strong>código de gestor</strong>, las <strong>primeras letras del proyecto</strong> y un <strong>ID de cliente</strong> para crear una ruta única.
+                <br />Una vez registrada, se puede crear la carpeta en el servidor Windows automáticamente.
+            </div>
         </div>
     );
 }

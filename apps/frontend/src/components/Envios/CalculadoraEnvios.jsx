@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { CONTAINER_TYPES, ENVIO_MODES, FIXED_ORIGINS } from './enviosConfig';
 import {
   buildFieldKey,
@@ -9,6 +8,7 @@ import {
   getMetadataEntries,
 } from './enviosUtils';
 import { useEnviosCalculator } from './useEnviosCalculator';
+import AppIcon from '../shared/AppIcon';
 import './envios.css';
 
 function FieldShell({ label, htmlFor, hint, error, required, children }) {
@@ -47,7 +47,7 @@ function EmptyState() {
   return (
     <div className="envios-result-empty">
       <div className="envios-result-empty-icon">
-        <span style={{ fontSize: 32 }}>📦</span>
+        <AppIcon name="package" size={34} />
       </div>
       <h3>Calculadora de envíos</h3>
       <p>Completa los datos y pulsa calcular para ver el precio.</p>
@@ -219,7 +219,7 @@ export default function CalculadoraEnvios() {
                 className={`chip${mode === m.value ? ' on' : ''} envios-mode-chip`}
                 onClick={() => handleModeChange(m.value)}
               >
-                <span>{m.emoji}</span>
+                <AppIcon name={m.icon} className="envios-mode-icon" />
                 <div>
                   <span>{m.label}</span>
                   <span className="chip-sub">{m.eyebrow}</span>

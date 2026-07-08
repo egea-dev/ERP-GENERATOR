@@ -140,14 +140,14 @@ body { background: var(--bg); color: var(--tx); font-family: var(--sans); min-he
 .big-area {
   width: 100%; background: var(--s2); border: 1px solid var(--br2); border-radius: 6px;
   padding: 14px 16px; font-family: var(--sans); font-size: 15px; font-weight: 500; color: var(--tx);
-  outline: none; resize: none; line-height: 1.5; transition: border-color .15s; min-height: 76px
+  outline: none; resize: none; line-height: 1.5; transition: border-color .15s; height: 76px
 }
 
 .big-area::placeholder { color: var(--tx3); font-size: 13px }
 
 .big-area:focus { border-color: var(--acc) }
 
-.area-hint { font-family: var(--mono); font-size: 10px; color: var(--tx3); margin-top: 6px }
+.area-hint { font-family: var(--mono); font-size: 10px; color: var(--tx3); margin-top: 6px; min-height: 18px }
 
 .area-hint.code { color: rgba(240, 192, 64, .6) }
 
@@ -526,7 +526,7 @@ body { background: var(--bg); color: var(--tx); font-family: var(--sans); min-he
 
 @media(max-width: 900px) {
   .dash-hdr { padding: 0 15px; height: 50px; }
-  .logo-main { fontSize: 13px; }
+  .logo-main { font-size: 13px; }
   .dash-body { flex-direction: column; overflow-y: auto; align-items: stretch; height: auto; }
   .panel { height: auto; border-bottom: 1px solid var(--br); flex: none; }
   .panel.active { min-height: 0; flex: none; width: 100%; border-right: none; }

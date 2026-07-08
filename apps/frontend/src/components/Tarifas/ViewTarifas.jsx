@@ -34,7 +34,7 @@ function TarifaVirtualRow({ index, style, ariaAttributes, items, copiedId, onCop
       }}
     >
       <div style={{ width: 120, fontWeight: 600, color: 'var(--acc)', cursor: 'pointer' }} onClick={() => onCopy(tarifa.referencia, tarifa.id)}>
-        {tarifa.referencia} {copiedId === tarifa.id ? <span style={{ color: '#52c97e', fontSize: 10 }}>✓</span> : null}
+        {tarifa.referencia} {copiedId === tarifa.id ? <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#52c97e" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle' }}><polyline points="20 6 9 17 4 12"></polyline></svg> : null}
       </div>
       <div style={{ width: 100 }}>{tarifa.articulo || '-'}</div>
       <div style={{ width: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={tarifa.descripcion}>{tarifa.descripcion || '-'}</div>
@@ -928,11 +928,16 @@ function ViewVersionesTarifas({ proveedor, onVolver, addToast }) {
     }));
   };
 
-  const SortIcon = ({ field }) => (
-    <span style={{ marginLeft: 4, opacity: sortConfig.field === field ? 1 : 0.3 }}>
-      {sortConfig.field === field ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↕'}
-    </span>
-  );
+  const SortIcon = ({ field }) => {
+    const active = sortConfig.field === field;
+    const dir = sortConfig.direction;
+    if (active) {
+      return dir === 'asc'
+        ? <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 4, verticalAlign: 'middle' }}><polyline points="18 15 12 9 6 15"></polyline></svg>
+        : <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 4, verticalAlign: 'middle' }}><polyline points="6 9 12 15 18 9"></polyline></svg>;
+    }
+    return <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 4, opacity: 0.3, verticalAlign: 'middle' }}><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>;
+  };
 
   const activateVersion = async () => {
     if (!selectedVersionId || !selectedVersion || selectedVersion.is_active) return;

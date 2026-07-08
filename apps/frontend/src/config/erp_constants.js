@@ -1,85 +1,564 @@
 // ─── CONSTANTES DEL ERP ────────────────────────────────────────────────────────
+// Sistema de codificacion: FF TTT MMM NNN SS (13 caracteres)
+// FF = Familia (2 letras)
+// TTT = Tipo (3 alfanumericos)
+// MMM = Medida 1 / Color (3 digitos)
+// NNN = Medida 2 / Ancho (3 digitos)
+// SS = Secuencial alfanumerico (01-ZZ, 1296 combinaciones)
+// Excepciones: TE (TELAS) usa estructura especial TETTTCCCWWWSS
+
 export const FAMILIAS = [
-  { codigo: "ALFB", desc: "ALFOMBRAS" },
-  { codigo: "BLNC", desc: "BLANCOS" },
-  { codigo: "BTCA", desc: "BUTACAS" },
-  { codigo: "CDRT", desc: "CUADRANTE" },
-  { codigo: "CLCH", desc: "COLCHAS" },
-  { codigo: "CLCN", desc: "COLCHONES" },
-  { codigo: "CNSM", desc: "CONSUMIBLES" },
-  { codigo: "CORT", desc: "CORTINA" },
-  { codigo: "CUBC", desc: "CUBRECANAPES" },
-  { codigo: "ESBT", desc: "ESPUMA Y BOATA" },
-  { codigo: "ESTR", desc: "ESTOR" },
-  { codigo: "FUND", desc: "FUNDA" },
-  { codigo: "HERR", desc: "HERRAMIENTAS" },
-  { codigo: "HRRJ", desc: "HERRAJES" },
-  { codigo: "LNCR", desc: "LENCERIA" },
-  { codigo: "MADR", desc: "MADERA" },
-  { codigo: "MLBR", desc: "MOBILIARIO" },
-  { codigo: "MNOB", desc: "MANO DE OBRA" },
-  { codigo: "MNTL", desc: "MANTELERIA" },
-  { codigo: "MTOF", desc: "MATERIAL OFICINA" },
-  { codigo: "PAVB", desc: "PAVIMENTO" },
-  { codigo: "PLAD", desc: "PLAIDS" },
-  { codigo: "PVAL", desc: "PAVIMENTO Y ALFOMBRAS" },
-  { codigo: "RDAP", desc: "RODAPIE" },
-  { codigo: "RLLN", desc: "RELLENOS" },
-  { codigo: "RIBA", desc: "RIELES Y BARRAS" },
-  { codigo: "RVST", desc: "REVESTIMIENTO" },
-  { codigo: "SLLA", desc: "SILLAS" },
-  { codigo: "SOFA", desc: "SOFAS" },
-  { codigo: "SOMB", desc: "SOMBRA" },
-  { codigo: "TELA", desc: "TELA" },
-  { codigo: "VARI", desc: "ARTICULOS VARIOS" },
-  { codigo: "MOTP", desc: "M.O. TAPIZADO" },
+  { codigo: "AL", desc: "ALFOMBRAS" },
+  { codigo: "BL", desc: "BLANCOS" },
+  { codigo: "BU", desc: "BUTACAS" },
+  { codigo: "CB", desc: "CUBRECANAPES" },
+  { codigo: "CH", desc: "COLCHAS" },
+  { codigo: "CN", desc: "COLCHONES" },
+  { codigo: "CO", desc: "COLCHONES" },
+  { codigo: "CR", desc: "CORTINAS" },
+  { codigo: "CS", desc: "CONSUMIBLES" },
+  { codigo: "CU", desc: "COJINES" },
+  { codigo: "EB", desc: "ESPUMA Y BOATA" },
+  { codigo: "ES", desc: "ESTORES" },
+  { codigo: "FU", desc: "FUNDAS" },
+  { codigo: "HE", desc: "HERRAMIENTAS" },
+  { codigo: "HJ", desc: "HERRAJES" },
+  { codigo: "LE", desc: "LENCERIA" },
+  { codigo: "MA", desc: "MADERA" },
+  { codigo: "MB", desc: "MOBILIARIO" },
+  { codigo: "MN", desc: "MANO DE OBRA" },
+  { codigo: "MT", desc: "MANTELERIA" },
+  { codigo: "OF", desc: "MATERIAL OFICINA" },
+  { codigo: "PA", desc: "PAVIMENTO" },
+  { codigo: "PL", desc: "PLAIDS" },
+  { codigo: "RB", desc: "RIELES Y BARRAS" },
+  { codigo: "RE", desc: "RELLENOS" },
+  { codigo: "RO", desc: "RODAPIE" },
+  { codigo: "RV", desc: "REVESTIMIENTO" },
+  { codigo: "SI", desc: "SILLAS" },
+  { codigo: "SM", desc: "SOMBRA" },
+  { codigo: "SO", desc: "SOFAS" },
+  { codigo: "SY", desc: "ARTICULOS DE SISTEMA" },
+  { codigo: "TE", desc: "TELAS" },
+  { codigo: "VA", desc: "ARTICULOS VARIOS" },
 ];
 
 export const TIPOS = [
-  { codigo: "ALF", desc: "ALFOMBRA", familia: "ALFB", idTipo: ["tamano"] },
-  { codigo: "FLP", desc: "FELPUDO", familia: "ALFB", idTipo: ["tamano"] },
-  { codigo: "SAB", desc: "SABANA", familia: "BLNC", idTipo: ["tamano"] },
-  { codigo: "FND", desc: "FUNDA", familia: "BLNC", idTipo: ["tamano"] },
-  { codigo: "MAN", desc: "MANTAS", familia: "BLNC", idTipo: ["tamano"] },
-  { codigo: "BUT", desc: "BUTACA", familia: "BTCA", idTipo: ["variante", "tamano"] },
-  { codigo: "POF", desc: "POOF/PUF", familia: "BTCA", idTipo: ["tamano"] },
-  { codigo: "CJ", desc: "COJIN", familia: "CDRT", idTipo: ["variante", "tamano"] },
-  { codigo: "QUAD", desc: "CUADRANTE", familia: "CDRT", idTipo: ["tamano"] },
-  { codigo: "COL", desc: "COLCHA", familia: "CLCH", idTipo: ["tamano"] },
-  { codigo: "EDR", desc: "EDREDON", familia: "CLCH", idTipo: ["tamano"] },
-  { codigo: "CLN", desc: "COLCHON", familia: "CLCN", idTipo: ["tamano"] },
-  { codigo: "VIS", desc: "VISILLO", familia: "CORT", idTipo: ["tamano"] },
-  { codigo: "EST", desc: "ESTOR", familia: "ESTR", idTipo: ["tamano"] },
-  { codigo: "BLK", desc: "BLACKOUT", familia: "ESTR", idTipo: ["tamano"] },
-  { codigo: "FNS", desc: "FUNDA SOFA", familia: "FUND", idTipo: ["variante", "tamano"] },
-  { codigo: "FNC", desc: "FUNDA COJIN", familia: "FUND", idTipo: ["variante", "tamano"] },
-  { codigo: "FNB", desc: "FUNDA BUTACA", familia: "FUND", idTipo: ["variante"] },
-  { codigo: "TOA", desc: "TOALLA", familia: "LNCR", idTipo: ["tamano"] },
-  { codigo: "ALB", desc: "ALBORNOZ", familia: "LNCR", idTipo: ["variante"] },
-  { codigo: "MNT", desc: "MANTEL", familia: "MNTL", idTipo: ["tamano"] },
-  { codigo: "IND", desc: "INDIVIDUAL", familia: "MNTL", idTipo: ["tamano"] },
-  { codigo: "CAM", desc: "CAMINO MESA", familia: "MNTL", idTipo: ["tamano"] },
-  { codigo: "SRV", desc: "SERVILLETA", familia: "MNTL", idTipo: ["tamano"] },
-  { codigo: "PLD", desc: "PLAID", familia: "PLAD", idTipo: ["tamano"] },
-  { codigo: "RLL", desc: "RELLENO COJIN", familia: "RLLN", idTipo: ["tamano"] },
-  { codigo: "RLLN", desc: "RELLENOS", familia: "RLLN", idTipo: ["tamano"] },
-  { codigo: "PAP", desc: "PAPEL PARED", familia: "RVST", idTipo: ["tamano"] },
-  { codigo: "VNL", desc: "VINILO", familia: "RVST", idTipo: ["tamano"] },
-  { codigo: "MES", desc: "MESA", familia: "MLBR", idTipo: ["tamano"] },
-  { codigo: "MSN", desc: "MESITA", familia: "MLBR", idTipo: ["tamano"] },
-  { codigo: "SLL", desc: "SILLA", familia: "SLLA", idTipo: ["variante", "tamano"] },
-  { codigo: "BNQ", desc: "BANQUETA", familia: "SLLA", idTipo: ["variante", "tamano"] },
-  { codigo: "TAB", desc: "TABURETE", familia: "SLLA", idTipo: ["variante", "tamano"] },
-  { codigo: "MOD", desc: "MODULO", familia: "SOFA", idTipo: ["variante", "tamano"] },
-  { codigo: "CHI", desc: "CHAISE", familia: "SOFA", idTipo: ["tamano"] },
-  { codigo: "REC", desc: "RECLINABLE", familia: "SOFA", idTipo: ["variante"] },
-  { codigo: "RNC", desc: "RINCONERA", familia: "SOFA", idTipo: ["variante", "tamano"] },
-  { codigo: "CMR", desc: "COLECCION", familia: "TELA", idTipo: ["modelo"] },
-  { codigo: "MTS", desc: "METROS", familia: "TELA", idTipo: ["tamano"] },
-  { codigo: "SOFA", desc: "SOFA", familia: "MOTP", idTipo: ["variante"] },
-  { codigo: "SLL", desc: "SILLA", familia: "MOTP", idTipo: ["variante"] },
-  { codigo: "BUT", desc: "BUTACA", familia: "MOTP", idTipo: ["variante"] },
+  // ALFOMBRAS
+  { codigo: "ALF", desc: "ALFOMBRA", familia: "AL" },
+  { codigo: "FLP", desc: "FELPUDO", familia: "AL" },
+  // BLANCOS
+  { codigo: "SAB", desc: "SABANA", familia: "BL" },
+  { codigo: "FND", desc: "FUNDA", familia: "BL" },
+  { codigo: "MAN", desc: "MANTA", familia: "BL" },
+  { codigo: "ALM", desc: "ALMOHADA", familia: "BL" },
+  // BUTACAS
+  { codigo: "BUT", desc: "BUTACA", familia: "BU" },
+  { codigo: "POF", desc: "POUF/PUF", familia: "BU" },
+  { codigo: "SIL", desc: "SILLON", familia: "BU" },
+  { codigo: "OTO", desc: "OTOMANA", familia: "BU" },
+  { codigo: "REL", desc: "RELAX", familia: "BU" },
+  // COJINES
+  { codigo: "COJ", desc: "COJIN SIMPLE", familia: "CU" },
+  { codigo: "CES", desc: "COJIN ESPALDA", familia: "CU" },
+  { codigo: "CAS", desc: "COJIN ASIENTO", familia: "CU" },
+  { codigo: "CBR", desc: "COJIN BRAZO", familia: "CU" },
+  { codigo: "CLU", desc: "COJIN LUMBAR", familia: "CU" },
+  { codigo: "CRO", desc: "COJIN RULO", familia: "CU" },
+  { codigo: "FCO", desc: "FUNDA COJIN", familia: "CU" },
+  { codigo: "RCO", desc: "RELLENO COJIN", familia: "CU" },
+  // COLCHAS
+  { codigo: "COL", desc: "COLCHA", familia: "CH" },
+  { codigo: "EDR", desc: "EDREDON", familia: "CH" },
+  { codigo: "NID", desc: "NIDO", familia: "CH" },
+  // COLCHONES
+  { codigo: "CLN", desc: "COLCHON", familia: "CN" },
+  { codigo: "TOP", desc: "TOPPER", familia: "CN" },
+  { codigo: "SOM", desc: "SOMIER", familia: "CN" },
+  // CORTINAS
+  { codigo: "CCO", desc: "CORTINA CONFECCIONADA", familia: "CR" },
+  { codigo: "OND", desc: "ONDA PERFECTA", familia: "CR" },
+  { codigo: "FRU", desc: "FRUNCIDA", familia: "CR" },
+  { codigo: "OLL", desc: "OLLAOS", familia: "CR" },
+  { codigo: "VIS", desc: "VISILLO", familia: "CR" },
+  { codigo: "OPC", desc: "OPACA", familia: "CR" },
+  { codigo: "PJA", desc: "PANEL JAPONES", familia: "CR" },
+  // ESTORES
+  { codigo: "ENR", desc: "ENROLLABLE", familia: "ES" },
+  { codigo: "SCR", desc: "SCREEN", familia: "ES" },
+  { codigo: "OPA", desc: "OPACO", familia: "ES" },
+  { codigo: "NYD", desc: "NOCHE Y DIA", familia: "ES" },
+  { codigo: "PAQ", desc: "PAQUETO", familia: "ES" },
+  { codigo: "PLI", desc: "PLEGABLE", familia: "ES" },
+  { codigo: "MOT", desc: "MOTORIZADO", familia: "ES" },
+  // FUNDAS
+  { codigo: "FSO", desc: "FUNDA SOFA", familia: "FU" },
+  { codigo: "FSI", desc: "FUNDA SILLA", familia: "FU" },
+  { codigo: "FCO", desc: "FUNDA COJIN", familia: "FU" },
+  { codigo: "FNB", desc: "FUNDA BUTACA", familia: "FU" },
+  // HERRAJES
+  { codigo: "BIS", desc: "BISAGRA", familia: "HJ" },
+  { codigo: "TOR", desc: "TORNILLO", familia: "HJ" },
+  { codigo: "TIR", desc: "TIRADOR", familia: "HJ" },
+  { codigo: "COR", desc: "CORREDERA", familia: "HJ" },
+  { codigo: "CER", desc: "CERRADURA", familia: "HJ" },
+  // MADERA
+  { codigo: "TAB", desc: "TABLERO", familia: "MA" },
+  { codigo: "MDF", desc: "MDF", familia: "MA" },
+  { codigo: "AGL", desc: "AGLOMERADO", familia: "MA" },
+  { codigo: "CON", desc: "CONTRACHAPADO", familia: "MA" },
+  { codigo: "MAC", desc: "MACIZA", familia: "MA" },
+  { codigo: "LIS", desc: "LISTON", familia: "MA" },
+  // MOBILIARIO
+  { codigo: "MES", desc: "MESA", familia: "MB" },
+  { codigo: "ARM", desc: "ARMARIO", familia: "MB" },
+  { codigo: "EST", desc: "ESTANTERIA", familia: "MB" },
+  { codigo: "APA", desc: "APARADOR", familia: "MB" },
+  { codigo: "ZAP", desc: "ZAPATERO", familia: "MB" },
+  // MANO DE OBRA
+  { codigo: "TAP", desc: "TAPIZADO", familia: "MN" },
+  { codigo: "CNF", desc: "CONFECCION", familia: "MN" },
+  { codigo: "MON", desc: "MONTAJE", familia: "MN" },
+  { codigo: "INS", desc: "INSTALACION", familia: "MN" },
+  { codigo: "COR", desc: "CORTE", familia: "MN" },
+  { codigo: "COS", desc: "COSIDO", familia: "MN" },
+  { codigo: "EMB", desc: "EMBALAJE", familia: "MN" },
+  { codigo: "DES", desc: "DESMONTAJE", familia: "MN" },
+  { codigo: "TRA", desc: "TRANSPORTE", familia: "MN" },
+  { codigo: "MED", desc: "MEDICION", familia: "MN" },
+  { codigo: "REP", desc: "REPARACION", familia: "MN" },
+  // CONSUMIBLES
+  { codigo: "LIM", desc: "LIMPIEZA", familia: "CS" },
+  { codigo: "PEG", desc: "PEGAMENTO", familia: "CS" },
+  { codigo: "GRA", desc: "GRAPAS", familia: "CS" },
+  { codigo: "TOR", desc: "TORNILLERIA", familia: "CS" },
+  { codigo: "CIN", desc: "CINTA", familia: "CS" },
+  { codigo: "HIL", desc: "HILO", familia: "CS" },
+  { codigo: "CRE", desc: "CREMALLERA", familia: "CS" },
+  { codigo: "VEL", desc: "VELCRO", familia: "CS" },
+  { codigo: "ETI", desc: "ETIQUETAS", familia: "CS" },
+  // RIELES Y BARRAS
+  { codigo: "RIE", desc: "RIEL", familia: "RB" },
+  { codigo: "BAR", desc: "BARRA", familia: "RB" },
+  { codigo: "CUR", desc: "CURVA", familia: "RB" },
+  { codigo: "SOP", desc: "SOPORTE", familia: "RB" },
+  { codigo: "TER", desc: "TERMINAL", familia: "RB" },
+  { codigo: "ANI", desc: "ANILLA", familia: "RB" },
+  { codigo: "MOT", desc: "MOTOR", familia: "RB" },
+  { codigo: "CAR", desc: "CARRO", familia: "RB" },
+  { codigo: "ACC", desc: "ACCESORIO", familia: "RB" },
+  // ESPUMA Y BOATA
+  { codigo: "ESP", desc: "ESPUMA", familia: "EB" },
+  { codigo: "BOA", desc: "BOATA", familia: "EB" },
+  { codigo: "FIB", desc: "FIBRA", familia: "EB" },
+  { codigo: "GUA", desc: "GUATA", familia: "EB" },
+  { codigo: "VIS", desc: "VISCOELASTICA", familia: "EB" },
+  { codigo: "HRE", desc: "ALTA RESILIENCIA", familia: "EB" },
+  // RELLENOS
+  { codigo: "PLU", desc: "PLUMA", familia: "RE" },
+  { codigo: "FIB", desc: "FIBRA", familia: "RE" },
+  // SILLAS
+  { codigo: "COM", desc: "COMEDOR", familia: "SI" },
+  { codigo: "COC", desc: "COCINA", familia: "SI" },
+  { codigo: "OFF", desc: "OFICINA", familia: "SI" },
+  { codigo: "EXT", desc: "EXTERIOR", familia: "SI" },
+  { codigo: "PLG", desc: "PLEGABLE", familia: "SI" },
+  { codigo: "TAB", desc: "TABURETE", familia: "SI" },
+  { codigo: "BAN", desc: "BANQUETA", familia: "SI" },
+  // SOFAS
+  { codigo: "S01", desc: "SOFA 1 PLAZA", familia: "SO" },
+  { codigo: "S02", desc: "SOFA 2 PLAZAS", familia: "SO" },
+  { codigo: "S03", desc: "SOFA 3 PLAZAS", familia: "SO" },
+  { codigo: "S04", desc: "SOFA 4 PLAZAS", familia: "SO" },
+  { codigo: "S05", desc: "SOFA 5 PLAZAS", familia: "SO" },
+  { codigo: "SCM", desc: "SOFA CAMA", familia: "SO" },
+  { codigo: "MOD", desc: "MODULO", familia: "SO" },
+  { codigo: "CHA", desc: "CHAISE LONGUE", familia: "SO" },
+  { codigo: "RIN", desc: "RINCONERA", familia: "SO" },
+  { codigo: "PUF", desc: "POUF SOFA", familia: "SO" },
+  // TELAS (estructura especial: TE + TIPO + COLOR + ANCHO + SS)
+  { codigo: "LIS", desc: "LISA", familia: "TE" },
+  { codigo: "EST", desc: "ESTAMPADA", familia: "TE" },
+  { codigo: "RAY", desc: "RAYADA", familia: "TE" },
+  { codigo: "CUA", desc: "CUADROS", familia: "TE" },
+  { codigo: "FLO", desc: "FLORES", familia: "TE" },
+  { codigo: "GEO", desc: "GEOMETRICA", familia: "TE" },
+  { codigo: "JAC", desc: "JACQUARD", familia: "TE" },
+  { codigo: "DAM", desc: "DAMASCO", familia: "TE" },
+  { codigo: "VEL", desc: "TERCIOPELO", familia: "TE" },
+  { codigo: "LIN", desc: "LINO", familia: "TE" },
+  { codigo: "ALG", desc: "ALGODON", familia: "TE" },
+  { codigo: "SED", desc: "SEDA", familia: "TE" },
+  { codigo: "PIE", desc: "PIEL/POLIPIEL", familia: "TE" },
+  { codigo: "IGN", desc: "IGNIFUGA", familia: "TE" },
+  { codigo: "OUT", desc: "OUTDOOR", familia: "TE" },
+  { codigo: "BLA", desc: "BLACKOUT", familia: "TE" },
+  { codigo: "SCR", desc: "SCREEN", familia: "TE" },
+  { codigo: "VIS", desc: "VISILLO", familia: "TE" },
+  { codigo: "TER", desc: "TERMICA", familia: "TE" },
+  { codigo: "ACU", desc: "ACUSTICA", familia: "TE" },
 ];
+
+// ─── UTILIDADES ───────────────────────────────────────────────────────────────
+
+export function norm(text = '') {
+  return String(text || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+const SEQ_CHARS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const SEQ_MAP = {};
+const SEQ_LIST = [];
+for (let i = 0; i < SEQ_CHARS.length; i++) {
+  for (let j = 0; j < SEQ_CHARS.length; j++) {
+    const seq = SEQ_CHARS[i] + SEQ_CHARS[j];
+    SEQ_MAP[seq] = SEQ_LIST.length;
+    SEQ_LIST.push(seq);
+  }
+}
+
+function fitBlock(value = '', length = 2) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .slice(0, length)
+    .padEnd(length, '0');
+}
+
+function fitMedida(value, length = 3) {
+  if (value === undefined || value === null || value === '') return '0'.repeat(length);
+  const num = parseInt(String(value).replace(/\D/g, ''), 10);
+  if (isNaN(num)) return '0'.repeat(length);
+  return String(num).slice(0, length).padStart(length, '0');
+}
+
+export function seqNext(currentSeq) {
+  const idx = currentSeq ? SEQ_MAP[currentSeq] : -1;
+  const nextIdx = idx + 1;
+  if (nextIdx >= SEQ_LIST.length) return null;
+  return SEQ_LIST[nextIdx];
+}
+
+export function seqFirst() {
+  return SEQ_LIST[0];
+}
+
+// ─── DETECCION DE FAMILIA Y TIPO ──────────────────────────────────────────────
+
+const KW_FAMILIAS = [
+  { kw: ["alfombra", "alfombras", "felpudo"], cod: "AL" },
+  { kw: ["sabana", "sabanas", "funda nordica", "nordico", "edredon", "blancos", "almohada"], cod: "BL" },
+  { kw: ["butaca", "butacas", "puf", "poof", "sillon", "otomana", "relax"], cod: "BU" },
+  { kw: ["cubrecanape", "cubrecanapes", "cubre sofa", "cubrecanape"], cod: "CB" },
+  { kw: ["colcha", "colchas", "nido"], cod: "CH" },
+  { kw: ["colchon", "colchones", "viscoelastico", "somier", "topper"], cod: "CN" },
+  { kw: ["cojin", "cojines", "cuadrante", "almohadon", "funda cojin", "relleno cojin"], cod: "CU" },
+  { kw: ["consumible", "consumibles", "limpieza", "pegamento", "grapas", "cinta", "hilo"], cod: "CS" },
+  { kw: ["cortina", "cortinas", "confeccianada", "onda perfecta", "fruncida", "ollaos"], cod: "CR" },
+  { kw: ["espuma", "boata", "goma espuma", "foam", "guata", "viscoelastica", "hr", "alta resiliencia"], cod: "EB" },
+  { kw: ["estor", "estores", "enrollable", "screen", "paqueto", "plegable", "blackout", "noche y dia"], cod: "ES" },
+  { kw: ["funda sofa", "funda de sofa", "funda butaca", "funda silla", "funda cojin"], cod: "FU" },
+  { kw: ["herramienta", "herramientas", "utensilio"], cod: "HE" },
+  { kw: ["herraje", "herrajes", "bisagra", "perno", "tornillo", "tirador", "corredera", "cerradura"], cod: "HJ" },
+  { kw: ["toalla", "toallas", "albornoz", "lenceria", "mantel", "servilleta", "camino mesa"], cod: "LE" },
+  { kw: ["madera", "listones", "tabla madera", "tablero", "dm", "mdf", "aglomerado", "contrachapado", "maciza"], cod: "MA" },
+  { kw: ["mesa", "armario", "estanteria", "aparador", "zapatero", "mobiliario"], cod: "MB" },
+  { kw: ["mano de obra", "tapizado", "confeccion", "montaje", "instalacion", "corte", "cosido", "embalaje", "transporte", "medicion", "reparacion"], cod: "MN" },
+  { kw: ["tela", "telas", "tejido", "lisa", "estampada", "rayada", "jacquard", "dril", "linoh", "algodon", "seda", "terciopelo", "piel", "polipiel", "blackout", "screen", "visillo", "ignifuga", "outdoor", "tropical"], cod: "TE" },
+  { kw: ["riel", "rieles", "barra", "barras", "soporte", "curva", "terminal", "anilla", "motor", "carro"], cod: "RB" },
+  { kw: ["silla", "sillas", "taburete", "banqueta", "comedor", "oficina", "exterior", "plegable"], cod: "SI" },
+  { kw: ["sofa", "sofas", "chaise", "meridiana", "rinconera", "modulo", "sofa cama", "poff", "puf"], cod: "SO" },
+  { kw: ["toldo", "sombra", "pergola", "sombrilla"], cod: "SM" },
+  { kw: ["revestimiento", "papel pintado", "vinilo", "panel"], cod: "RV" },
+  { kw: ["rodapie", "rodapies", "zcocalo"], cod: "RO" },
+  { kw: ["plaid", "plaids"], cod: "PL" },
+  { kw: ["pavimento", "tarima", "vinilo"], cod: "PA" },
+  { kw: ["relleno", "pluma", "fibra"], cod: "RE" },
+];
+
+const KW_TIPOS = {
+  CU: [
+    { kw: ["simple", "cojin"], cod: "COJ" },
+    { kw: ["espalda", "respaldo"], cod: "CES" },
+    { kw: ["asiento"], cod: "CAS" },
+    { kw: ["brazo"], cod: "CBR" },
+    { kw: ["lumbar", "rinonera"], cod: "CLU" },
+    { kw: ["rulo", "cilindrico"], cod: "CRO" },
+    { kw: ["funda"], cod: "FCO" },
+    { kw: ["relleno"], cod: "RCO" },
+  ],
+  SO: [
+    { kw: ["1 plaza", "1plaza", "un plaza"], cod: "S01" },
+    { kw: ["2 plazas", "2plazas", "dos plazas"], cod: "S02" },
+    { kw: ["3 plazas", "3plazas", "tres plazas"], cod: "S03" },
+    { kw: ["4 plazas", "4plazas", "cuatro plazas"], cod: "S04" },
+    { kw: ["5 plazas", "5plazas", "cinco plazas"], cod: "S05" },
+    { kw: ["cama", "sofa cama"], cod: "SCM" },
+    { kw: ["modulo"], cod: "MOD" },
+    { kw: ["chaise", "meridiana"], cod: "CHA" },
+    { kw: ["rinconera"], cod: "RIN" },
+    { kw: ["puf", "poff"], cod: "PUF" },
+  ],
+  CR: [
+    { kw: ["confeccianada", "confec"], cod: "CCO" },
+    { kw: ["onda"], cod: "OND" },
+    { kw: ["fruncida"], cod: "FRU" },
+    { kw: ["ollaos"], cod: "OLL" },
+    { kw: ["visillo"], cod: "VIS" },
+    { kw: ["opaca", "blackout"], cod: "OPC" },
+    { kw: ["panel japones", "japones"], cod: "PJA" },
+  ],
+  ES: [
+    { kw: ["enrollable"], cod: "ENR" },
+    { kw: ["screen"], cod: "SCR" },
+    { kw: ["opaco", "blackout"], cod: "OPA" },
+    { kw: ["noche y dia", "nyd"], cod: "NYD" },
+    { kw: ["paqueto"], cod: "PAQ" },
+    { kw: ["plegable"], cod: "PLI" },
+    { kw: ["motorizado", "motor"], cod: "MOT" },
+  ],
+  TE: [
+    { kw: ["lisa", "liso"], cod: "LIS" },
+    { kw: ["estampada", "estampado"], cod: "EST" },
+    { kw: ["rayada", "rayas"], cod: "RAY" },
+    { kw: ["cuadros"], cod: "CUA" },
+    { kw: ["flores", "floral"], cod: "FLO" },
+    { kw: ["geometrica", "geometrico"], cod: "GEO" },
+    { kw: ["jacquard"], cod: "JAC" },
+    { kw: ["damasco"], cod: "DAM" },
+    { kw: ["terciopelo", "velvet", "velour"], cod: "VEL" },
+    { kw: ["lino"], cod: "LIN" },
+    { kw: ["algodon", "algodon 100"], cod: "ALG" },
+    { kw: ["seda", "simil seda"], cod: "SED" },
+    { kw: ["piel", "polipiel", "piel sintetica"], cod: "PIE" },
+    { kw: ["ignifuga", "ignifugo"], cod: "IGN" },
+    { kw: ["outdoor", "exterior"], cod: "OUT" },
+    { kw: ["blackout", "opaca"], cod: "BLA" },
+    { kw: ["screen"], cod: "SCR" },
+    { kw: ["visillo"], cod: "VIS" },
+    { kw: ["termica"], cod: "TER" },
+    { kw: ["acustica"], cod: "ACU" },
+  ],
+  RB: [
+    { kw: ["riel"], cod: "RIE" },
+    { kw: ["barra"], cod: "BAR" },
+    { kw: ["curva", "esquinero"], cod: "CUR" },
+    { kw: ["soporte"], cod: "SOP" },
+    { kw: ["terminal", "remate"], cod: "TER" },
+    { kw: ["anilla", "argolla"], cod: "ANI" },
+    { kw: ["motor"], cod: "MOT" },
+    { kw: ["carro"], cod: "CAR" },
+    { kw: ["accesorio"], cod: "ACC" },
+  ],
+  BU: [
+    { kw: ["butaca"], cod: "BUT" },
+    { kw: ["puf", "poof"], cod: "POF" },
+    { kw: ["sillon"], cod: "SIL" },
+    { kw: ["otomana"], cod: "OTO" },
+    { kw: ["relax"], cod: "REL" },
+  ],
+  MN: [
+    { kw: ["tapizado"], cod: "TAP" },
+    { kw: ["confeccion"], cod: "CNF" },
+    { kw: ["montaje"], cod: "MON" },
+    { kw: ["instalacion"], cod: "INS" },
+    { kw: ["corte"], cod: "COR" },
+    { kw: ["cosido"], cod: "COS" },
+    { kw: ["embalaje"], cod: "EMB" },
+    { kw: ["desmontaje"], cod: "DES" },
+    { kw: ["transporte"], cod: "TRA" },
+    { kw: ["medicion"], cod: "MED" },
+    { kw: ["reparacion"], cod: "REP" },
+  ],
+};
+
+function hasWord(text, keywords) {
+  const t = ' ' + text.toUpperCase() + ' ';
+  return keywords.some(kw => t.includes(' ' + kw.toUpperCase() + ' '));
+}
+
+function hasSub(text, keywords) {
+  const t = text.toUpperCase();
+  return keywords.some(kw => t.includes(kw.toUpperCase()));
+}
+
+export function analyzeText(text) {
+  const r = {
+    familia: null,
+    tipo: null,
+    variante: null,
+    medida1: null,
+    medida2: null,
+    color: null,
+    ancho: null
+  };
+  if (!text || text.trim().length < 2) return r;
+
+  const tNorm = norm(text);
+
+  for (const f of KW_FAMILIAS) {
+    if (hasWord(text, f.kw) || hasSub(tNorm, f.kw)) {
+      r.familia = f.cod;
+      break;
+    }
+  }
+
+  if (r.familia && KW_TIPOS[r.familia]) {
+    for (const t of KW_TIPOS[r.familia]) {
+      if (hasWord(text, t.kw) || hasSub(tNorm, t.kw)) {
+        r.tipo = t.cod;
+        break;
+      }
+    }
+  }
+
+  const medidas = text.match(/(\d{1,3})\s*[xX×]\s*(\d{1,3})/);
+  if (medidas) {
+    r.medida1 = medidas[1];
+    r.medida2 = medidas[2];
+  } else {
+    const solo = text.match(/\b(\d{1,3})\b/);
+    if (solo) r.medida1 = solo[1];
+  }
+
+  return r;
+}
+
+export function resolveIdTipo(tipoObj, medida1, medida2, variante) {
+  if (!tipoObj) return 'tamano';
+  const modos = Array.isArray(tipoObj.idTipo) ? tipoObj.idTipo : [tipoObj.idTipo];
+  if (medida1 && medida2 && modos.includes('tamano')) return 'tamano';
+  if (variante && modos.includes('variante')) return 'variante';
+  return modos[0] || 'tamano';
+}
+
+// ─── GENERADOR DE REFERENCIA (10 CARACTERES) ─────────────────────────────────
+// Formato: FF TTT M X N
+// Ejemplo: CU COJ 50 X 50 = CUCOJ50X50
+// Longitud: 2 + 3 + hasta 2 + 1 + hasta 2 = max 10
+
+export function buildRef(familia, tipo, variante, medida1, medida2, coleccion, modelo, color, idTipo, descripcion = '') {
+  if (!familia) return '';
+
+  const familiaBlock = fitBlock(familia, 2);
+  const tipoBlock = fitBlock(tipo, 3);
+
+  // Para telas (TE) usar estructura especial: TE + TIPO + COLOR + ANCHO
+  if (familia === 'TE') {
+    const colorBlock = fitMedida(color, 3);
+    const anchoBlock = fitMedida(medida1, 3);
+    return `${familiaBlock}${tipoBlock}${colorBlock}${anchoBlock}`;
+  }
+
+  // Formato general: FF TTT M X N (sin ceros, max 10 chars)
+  // Medidas de 1-3 digitos, sin ceros a la izquierda
+  const med1 = String(medida1 || '0').replace(/\D/g, '').slice(-3); // ultimos 3 digitos
+  const med2 = String(medida2 || '0').replace(/\D/g, '').slice(-3);
+
+  // Calcular longitud total y ajustar si es necesario
+  const base = `${familiaBlock}${tipoBlock}${med1}X${med2}`;
+
+  // Si pasa de 10 chars, truncar medidas proporcionalmente
+  if (base.length > 10) {
+    const maxMedLen = Math.floor((10 - 6) / 2); // 6 = FF(2) + TTT(3) + X(1)
+    const truncMed1 = med1.slice(-maxMedLen);
+    const truncMed2 = med2.slice(-maxMedLen);
+    return `${familiaBlock}${tipoBlock}${truncMed1}X${truncMed2}`;
+  }
+
+  return base;
+}
+
+export function decodeRef(ref) {
+  const u = String(ref || '').toUpperCase().replace(/\s/g, '').replace(/x/g, 'X');
+  // Aceptar formato con X (8-12 chars) o 13 chars (telas)
+  if (!u.includes('X') && u.length !== 13) return null;
+
+  const familyBlock = u.slice(0, 2);
+  const fam = FAMILIAS.find(f => f.codigo === familyBlock) || null;
+
+  if (!fam) return null;
+
+  if (familyBlock === 'TE' && u.length === 13) {
+    return {
+      familia: 'TE',
+      tipo: u.slice(2, 5),
+      color: u.slice(5, 8),
+      ancho: u.slice(8, 11),
+      familiaObj: fam
+    };
+  }
+
+  // Formato normal: FF TTT M X N (donde M y N son 1-3 digitos)
+  // FF = 2 chars, TTT = 3 chars, luego medida1 (1-3 chars), X, medida2 (1-3 chars)
+  const xIndex = u.indexOf('X');
+  const medida1 = u.slice(5, xIndex);
+  const medida2 = u.slice(xIndex + 1);
+
+  return {
+    familia: familyBlock,
+    tipo: u.slice(2, 5),
+    medida1,
+    medida2,
+    familiaObj: fam
+  };
+}
+
+export function isValidRef(ref) {
+  const u = String(ref || '').trim().toUpperCase().replace(/\s/g, '').replace(/x/g, 'X');
+  // Formato con X: 6-10 chars (FF TTT M X N)
+  if (u.includes('X')) {
+    const xIndex = u.indexOf('X');
+    // FF(2) + TTT(3) + M(1-3) + X(1) + N(1-3) = 8-12
+    if (u.length < 8 || u.length > 12) return false;
+    // Verificar estructura
+    const ff = u.slice(0, 2);
+    const ttt = u.slice(2, xIndex);
+    const m = u.slice(xIndex + 1);
+    if (!/^[A-Z]{2}$/.test(ff)) return false;
+    if (!/^[A-Z0-9]{3}$/.test(ttt)) return false;
+    if (!/^[0-9]{1,3}$/.test(m)) return false;
+    return true;
+  }
+  // Formato 13 para telas
+  if (u.length === 13) {
+    return /^[A-Z]{2}[A-Z0-9]{3}[0-9]{3}[0-9]{3}$/.test(u);
+  }
+  return false;
+}
+
+export function refToDescripcion(ref) {
+  const decoded = decodeRef(ref);
+  if (!decoded) return null;
+
+  const { familia, tipo, medida1, medida2, familiaObj } = decoded;
+
+  // Buscar descripcion del tipo
+  const tipoObj = TIPOS.find(t => t.codigo === tipo && t.familia === familia);
+  const tipoDesc = tipoObj ? tipoObj.desc : tipo;
+
+  // Construir descripcion
+  let desc = tipoDesc;
+
+  // Agregar medidas si existen
+  if (medida1 && medida1 !== '0') {
+    desc += ` ${medida1}`;
+    if (medida2 && medida2 !== '0') {
+      desc += `X${medida2}`;
+    }
+  }
+
+  return desc;
+}
+
+// ─── EXPORTACIONES ADICIONALES ───────────────────────────────────────────────
 
 export const VARIANTES = [
   { codigo: "CER", desc: "CERRADO" },
@@ -99,293 +578,9 @@ export const VARIANTES = [
   { codigo: "1S", desc: "1P. SENCILLO" },
 ];
 
-export const KW = {
-  familias: [
-    { kw: ["alfombra", "alfombras", "felpudo", "moqueta"], cod: "ALFB" },
-    { kw: ["sabana", "sabanas", "funda nordica", "nordico", "edredon", "blancos"], cod: "BLNC" },
-    { kw: ["butaca", "butacas", "puf", "poof"], cod: "BTCA" },
-    { kw: ["cojin", "cojines", "cuadrante", "almohadon", "funda cojin"], cod: "CDRT" },
-    { kw: ["colcha", "colchas"], cod: "CLCH" },
-    { kw: ["colchon", "colchones", "viscoelastico", "somier"], cod: "CLCN" },
-    { kw: ["consumible", "consumibles", "material", "accesorio"], cod: "CNSM" },
-    { kw: ["cortina", "cortinas", "visillo", "visillos", "panel japones"], cod: "CORT" },
-    { kw: ["cubrecanape", "cubrecanapes", "cubre canape", "cubre sofa"], cod: "CUBC" },
-    { kw: ["espuma", "boata", "goma espuma", "foam"], cod: "ESBT" },
-    { kw: ["estor", "estores", "blackout", "black out", "screen", "enrollable"], cod: "ESTR" },
-    { kw: ["funda sofa", "funda de sofa", "funda butaca", "funda silla", "funda cojin"], cod: "FUND" },
-    { kw: ["herramienta", "herramientas", "utensilio", "util"], cod: "HERR" },
-    { kw: ["herraje", "herrajes", "bisagra", "perno", "tornillo", "grapas"], cod: "HRRJ" },
-    { kw: ["toalla", "toallas", "albornoz", "lenceria", "sabana bano"], cod: "LNCR" },
-    { kw: ["madera", "listones", "tabla madera", "tablero", "dm", "contrachapado"], cod: "MADR" },
-    {
-      kw: ["mesa", "mesas", "mueble", "muebles", "mobiliario", "aparador", "armario",
-        "estanteria", "libreria", "aparador", "comoda", "mesita", "escritorio"], cod: "MLBR"
-    },
-    { kw: ["mano de obra", "instalacion", "montaje", "labor"], cod: "MNOB" },
-    { kw: ["mantel", "manteles", "manteleria", "individual", "bajoplato", "camino de mesa"], cod: "MNTL" },
-    { kw: ["material oficina", "papeleria", "cartucho", "tinta"], cod: "MTOF" },
-    { kw: ["pavimento", "pavimentos", "suelo", "tarima", "parquet", "baldosa", "ceramica"], cod: "PAVB" },
-    { kw: ["plaid", "plaids", "manta sofa", "mantita"], cod: "PLAD" },
-    { kw: ["rodapie", "rodapies", "zocalo"], cod: "RDAP" },
-    { kw: ["relleno", "rellenos", "fibra", "guata", "almohada", "almohadas"], cod: "RLLN" },
-    { kw: ["riel", "rieles", "barra cortina", "barras cortina", "soporte cortina", "anilla"], cod: "RIBA" },
-    { kw: ["revestimiento", "papel pared", "vinilo", "papel pintado", "tapiz pared"], cod: "RVST" },
-    { kw: ["silla", "sillas", "banqueta", "banquetas", "taburete", "taburetes"], cod: "SLLA" },
-    { kw: ["sofa", "sofas", "modulo", "rinconera", "chaise", "chaiselongue", "reclinable"], cod: "SOFA" },
-    { kw: ["sombra", "sombrilla", "toldo", "parasol", "vela sombra"], cod: "SOMB" },
-    { kw: ["tela", "tejido", "textil", "metros", "metro lineal", "metraje", "rollo"], cod: "TELA" },
-  ],
-  tipos: [
-    { kw: ["felpudo"], cod: "FLP", fam: "ALFB" },
-    { kw: ["alfombra", "alfombras", "moqueta"], cod: "ALF", fam: "ALFB" },
-    { kw: ["sabana", "sabanas"], cod: "SAB", fam: "BLNC" },
-    { kw: ["edredon", "edredones", "nordico", "funda nordica"], cod: "EDR", fam: "BLNC" },
-    { kw: ["manta", "mantas"], cod: "MAN", fam: "BLNC" },
-    { kw: ["puf", "poof", "poff", "pouffe"], cod: "POF", fam: "BTCA" },
-    { kw: ["butaca", "butacas"], cod: "BUT", fam: "BTCA" },
-    { kw: ["cuadrante"], cod: "QUAD", fam: "CDRT" },
-    { kw: ["cojin", "cojines", "almohadon decorativo", "funda cojin"], cod: "CJ", fam: "CDRT" },
-    { kw: ["edredon", "nordico"], cod: "EDR", fam: "CLCH" },
-    { kw: ["colcha", "colchas"], cod: "COL", fam: "CLCH" },
-    { kw: ["viscoelastico", "viscoelastica", "visco", "memory"], cod: "VIS", fam: "CLCN" },
-    { kw: ["colchon", "colchones"], cod: "CLN", fam: "CLCN" },
-    { kw: ["panel japones", "panel corredor"], cod: "PAN", fam: "CORT" },
-    { kw: ["visillo", "visillos"], cod: "VSL", fam: "CORT" },
-    { kw: ["cortina", "cortinas"], cod: "CRT", fam: "CORT" },
-    { kw: ["blackout", "black out"], cod: "BLK", fam: "ESTR" },
-    { kw: ["estor", "estores", "enrollable", "screen"], cod: "EST", fam: "ESTR" },
-    { kw: ["funda sofa", "funda de sofa"], cod: "FNS", fam: "FUND" },
-    { kw: ["funda cojin", "funda de cojin"], cod: "FNC", fam: "FUND" },
-    { kw: ["funda butaca"], cod: "FNB", fam: "FUND" },
-    { kw: ["funda silla"], cod: "FNS", fam: "FUND" },
-    { kw: ["albornoz", "albornoces"], cod: "ALB", fam: "LNCR" },
-    { kw: ["toalla", "toallas"], cod: "TOA", fam: "LNCR" },
-    { kw: ["mesa comedor", "mesa dining"], cod: "MSC", fam: "MLBR" },
-    { kw: ["mesita", "mesita noche", "mesita auxiliar"], cod: "MSN", fam: "MLBR" },
-    { kw: ["mesa", "mesas"], cod: "MES", fam: "MLBR" },
-    { kw: ["aparador", "comoda", "armario", "estanteria"], cod: "MUB", fam: "MLBR" },
-    { kw: ["mueble", "muebles", "mobiliario"], cod: "MBL", fam: "MLBR" },
-    { kw: ["servilleta", "servilletas"], cod: "SRV", fam: "MNTL" },
-    { kw: ["individual", "bajoplato"], cod: "IND", fam: "MNTL" },
-    { kw: ["camino de mesa", "camino mesa"], cod: "CAM", fam: "MNTL" },
-    { kw: ["mantel", "manteles"], cod: "MNT", fam: "MNTL" },
-    { kw: ["plaid", "plaids", "manta sofa"], cod: "PLD", fam: "PLAD" },
-    { kw: ["fibra", "guata"], cod: "FBR", fam: "RLLN" },
-    { kw: ["relleno", "rellenos", "almohada", "almohadas"], cod: "RLL", fam: "RLLN" },
-    { kw: ["vinilo"], cod: "VNL", fam: "RVST" },
-    { kw: ["papel pared", "papel pintado", "tapiz"], cod: "PAP", fam: "RVST" },
-    { kw: ["taburete", "taburetes"], cod: "TAB", fam: "SLLA" },
-    { kw: ["banqueta", "banquetas"], cod: "BNQ", fam: "SLLA" },
-    { kw: ["silla", "sillas"], cod: "SLL", fam: "SLLA" },
-    { kw: ["chaise", "chaiselongue", "chaise longue"], cod: "CHI", fam: "SOFA" },
-    { kw: ["reclinable", "relax", "butaca relax"], cod: "REC", fam: "SOFA" },
-    { kw: ["rinconera", "esquinero"], cod: "RNC", fam: "SOFA" },
-    { kw: ["modulo", "modulos", "sofa modular", "sofa", "sofas"], cod: "MOD", fam: "SOFA" },
-    { kw: ["coleccion textil", "coleccion", "cmr"], cod: "CMR", fam: "TELA" },
-    { kw: ["metro", "metros", "metro lineal", "metraje", "rollo"], cod: "MTS", fam: "TELA" },
-  ],
-  variantes: [
-    { kw: ["cerrado", "cerrada", "cierre", "cremallera"], cod: "CER" },
-    { kw: ["pasamaneria", "pasaman", "flecos", "franja"], cod: "PAS" },
-    { kw: ["vivo", "ribete", "ribeteado"], cod: "VIV" },
-    { kw: ["petaca"], cod: "PET" },
-    { kw: ["bordado", "bordada"], cod: "BOR" },
-    { kw: ["liso", "lisa", "unicolor"], cod: "LIS" },
-    { kw: ["estampado", "estampada", "impreso", "print"], cod: "EST" },
-    { kw: ["abierto", "abierta", "sin cierre"], cod: "ABT" },
-    { kw: ["flecos"], cod: "FLE" },
-  ],
-};
+export { KW_FAMILIAS, KW_TIPOS };
 
-// ─── UTILIDADES DE ANÁLISIS ──────────────────────────────────────────────────
-export const norm = (s) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
-export const hasWord = (text, kws) => { const t = " " + norm(text) + " "; return kws.some((k) => t.includes(" " + norm(k) + " ")); };
-export const hasSub = (text, kws) => { const t = norm(text); return kws.some((k) => t.includes(norm(k))); };
-
-export function generateTypeCode(word) {
-  if (!word) return null;
-  const w = word.toUpperCase().replace(/[^A-Z]/g, '');
-  if (w.length <= 3) return w.padEnd(3, 'X');
-  const first = w[0];
-  const consonants = w.slice(1).replace(/[AEIOU]/g, '');
-  return (first + consonants).padEnd(3, 'X').slice(0, 3);
-}
-
-export function analyzeText(text) {
-  const r = { familia: null, tipo: null, variante: null, ancho: null, alto: null, manualTypeGen: null };
-  if (!text || text.trim().length < 2) return r;
-
-  const tNorm = norm(text);
-
-  if (tNorm.includes("tapizado") || tNorm.includes("tapizar")) {
-    r.familia = "MOTP";
-    if (tNorm.includes("sofa")) r.tipo = "SOFA";
-    else if (tNorm.includes("silla")) r.tipo = "SLL";
-    else if (tNorm.includes("butaca")) r.tipo = "BUT";
-
-    let plazas = "";
-    if (tNorm.includes("un plaza") || tNorm.includes("una plaza") || tNorm.includes("1")) plazas = "1";
-    if (tNorm.includes("dos plaza") || tNorm.includes("2")) plazas = "2";
-    if (tNorm.includes("tres plaza") || tNorm.includes("3")) plazas = "3";
-    if (tNorm.includes("cuatro plaza") || tNorm.includes("4")) plazas = "4";
-
-    let compl = "";
-    if (tNorm.includes("complejo") || tNorm.includes("capitone")) compl = "C";
-    else if (tNorm.includes("sencillo") || tNorm.includes("basico")) compl = "S";
-
-    if (plazas || compl) {
-      r.variante = plazas + compl;
-      if (!r.tipo) {
-        let familyKeywords = KW.familias.find(f => f.cod === r.familia)?.kw || [];
-        const words = tNorm.replace("tapizado de ", "").split(/[\s,]+/);
-        const firstWordRaw = words.find(w => {
-          const nw = norm(w);
-          return nw.length > 2 && !familyKeywords.some(k => norm(k).includes(nw));
-        });
-        const firstWord = firstWordRaw ? norm(firstWordRaw) : norm(words[0]);
-
-        if (firstWord && firstWord.length > 2) {
-          r.manualTypeGen = generateTypeCode(firstWord);
-          r.tipo = r.manualTypeGen;
-        }
-      }
-      return r;
-    }
-  }
-
-  for (const f of KW.familias)
-    if (hasWord(text, f.kw) || hasSub(text, f.kw)) { r.familia = f.cod; break; }
-
-  for (const t of KW.tipos)
-    if (hasWord(text, t.kw) || hasSub(text, t.kw)) { r.tipo = t.cod; break; }
-
-  for (const v of KW.variantes)
-    if (hasWord(text, v.kw) || hasSub(text, v.kw)) { r.variante = v.cod; break; }
-
-  const sm = text.match(/(\d{1,3})\s*[xX\u00d7*]\s*(\d{1,3})/);
-  if (sm) { r.ancho = sm[1]; r.alto = sm[2]; }
-
-  if (r.familia && !r.tipo) {
-    let familyKeywords = KW.familias.find(f => f.cod === r.familia)?.kw || [];
-    const words = text.split(/[\s,]+/);
-    const firstWordRaw = words.find(w => {
-      const nw = norm(w);
-      return nw.length > 2 && !familyKeywords.some(k => norm(k).includes(nw));
-    });
-    const firstWord = firstWordRaw ? norm(firstWordRaw) : norm(words[0]);
-
-    if (firstWord && firstWord.length > 2) {
-      r.manualTypeGen = generateTypeCode(firstWord);
-      r.tipo = r.manualTypeGen;
-    }
-  }
-
-  return r;
-}
-
-export function resolveIdTipo(tipoObj, anchoVal, altoVal, varianteVal, tieneModelo) {
-  if (!tipoObj) return "variante";
-  const modos = Array.isArray(tipoObj.idTipo) ? tipoObj.idTipo : [tipoObj.idTipo];
-  if (anchoVal && altoVal && modos.includes("tamano")) return "tamano";
-  if (tieneModelo && modos.includes("modelo")) return "modelo";
-  if (varianteVal && modos.includes("variante")) return "variante";
-  return modos[0];
-}
-
-export function decodeRef(ref) {
-  const u = ref.toUpperCase().replace(/\s/g, "");
-  const sortedFam = [...FAMILIAS].sort((a, b) => b.codigo.length - a.codigo.length);
-  const fam = sortedFam.find((f) => u.startsWith(f.codigo));
-  if (!fam) return null;
-  const r1 = u.slice(fam.codigo.length);
-  let tipo = null, tc = "";
-  const sortedTipos = [...TIPOS].sort((a, b) => b.codigo.length - a.codigo.length);
-  for (const t of sortedTipos) {
-    if (r1.startsWith(t.codigo) && t.familia === fam.codigo) { tipo = t; tc = t.codigo; break; }
-  }
-
-  if (!tipo && /^[A-Z]{2,3}/.test(r1)) {
-    tc = r1.match(/^[A-Z]{2,3}/)[0];
-    tipo = { codigo: tc, desc: "AUTO", familia: fam.codigo, idTipo: ["tamano", "modelo", "variante"] };
-  }
-
-  if (!tipo) return { fam, tipo: null };
-  const r2 = r1.slice(tc.length);
-  const varMatch = VARIANTES.find((v) => r2 === v.codigo);
-  const sizeMatch = /^\d+$/.test(r2) && r2.length >= 2 && r2.length % 2 === 0;
-  const half = Math.floor(r2.length / 2);
-  return {
-    fam, tipo,
-    variante: varMatch || null,
-    ancho: sizeMatch ? r2.slice(0, half) : null,
-    alto: sizeMatch ? r2.slice(half) : null,
-    modeloRaw: (!varMatch && !sizeMatch && r2) ? r2 : null,
-  };
-}
-
-const pad2 = (v) => (v ? String(v).padStart(2, "0") : "");
-
-export function buildRef(familia, tipo, variante, ancho, alto, coleccion, modelo, color, idTipo) {
-  if (!familia || !tipo) return "";
-  let id = "";
-  if (idTipo === "variante") id = variante || "";
-  else if (idTipo === "tamano") id = ancho && alto ? pad2(ancho) + pad2(alto) : "";
-  else if (idTipo === "modelo") id = (coleccion || "") + (modelo || "") + (color || "");
-  return (familia + tipo + id).toUpperCase();
-}
-
-// ─── GENERADOR DE TARIFAS ──────────────────────────────────────────────────────
-
-const TIPO_MAP = {
-  'rollo': 'ROL',
-  'metraje': 'MET',
-  'metro': 'MET',
-  'visillo': 'VIS',
-  'cortina': 'CRT',
-  'suelo': 'SUE',
-  'alfombra': 'ALF',
-  'panel': 'PAN',
-};
-
-export function extractTipo(articulo) {
-  if (!articulo) return null;
-  const normalized = norm(articulo).toLowerCase();
-  for (const [key, abbrev] of Object.entries(TIPO_MAP)) {
-    if (normalized.includes(key)) {
-      return abbrev;
-    }
-  }
-  return null;
-}
-
-export function cleanArticulo(articulo) {
-  if (!articulo) return '';
-  let cleaned = articulo
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, '')
-    .trim();
-  return cleaned;
-}
-
-function getConsonants(str) {
-  const clean = (str || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toUpperCase();
-  const consonants = clean.replace(/[^A-ZÑ]/g, '');
-  return consonants;
-}
-
-export function formatAncho(ancho) {
-  if (ancho === undefined || ancho === null || ancho === '') return '';
-  const str = String(ancho).replace(',', '.');
-  const num = parseFloat(str);
-  if (isNaN(num)) return '';
-  if (num < 10) return String(Math.round(num * 100));
-  return String(Math.round(num));
-}
+// ─── GENERADOR DE TARIFAS (para ViewTarifas) ─────────────────────────────────
 
 const TARIFA_GENERIC_WORDS = ['TELA', 'ROLLO', 'METRAJE'];
 const TARIFA_MATERIAL_WORDS = new Set([
@@ -513,9 +708,11 @@ export function resolveTarifaTipo(value) {
 }
 
 export function formatTarifaAncho(ancho) {
-  const normalized = formatAncho(ancho);
-  if (!normalized) return '000';
-  return normalized.padStart(3, '0').slice(-3);
+  if (!ancho) return '000';
+  const str = String(ancho).replace(',', '.');
+  const num = parseFloat(str);
+  if (isNaN(num)) return '000';
+  return String(Math.round(num)).padStart(3, '0').slice(-3);
 }
 
 export function generateTarifaRef(_familia, descripcion, ancho) {
@@ -553,9 +750,9 @@ export function detectColumn(headers, field) {
     precio: ['precio', 'pvp', 'precio venta', 'p.v.p', 'price'],
     descripcion: ['descripcion de producto', 'descripcion', 'descripción', 'nombre tela', 'nombre', 'producto', 'detail', 'detalle', 'description', 'desc', 'name']
   };
-  
+
   const candidates = mappings[fieldLower] || [fieldLower];
-  
+
   for (let i = 0; i < headers.length; i++) {
     const h = String(headers[i] || '').toLowerCase().trim();
     if (candidates.some(c => h.includes(c))) {

@@ -5,9 +5,13 @@
     "apps/*"
   ],
   "scripts": {
-    "dev:frontend": "npm run dev --workspace=@apps/frontend",
-    "dev:backend": "npm run dev --workspace=@apps/backend",
-    "build:frontend": "npm run build --workspace=apps/frontend",
-    "install:all": "npm install && npm install --workspace=apps/frontend && npm install --workspace=apps/backend"
+    "dev:frontend": "npm run dev --workspace=apps/frontend",
+    "dev:backend": "npm run dev --workspace=apps/backend",
+    "build:frontend": "node scripts/ensure-install.js && npm run build --workspace=apps/frontend",
+    "preview:db": "docker compose -f docker-compose.local.yml up -d db",
+    "preview:backend": "npm run dev --workspace=apps/backend",
+    "preview:frontend": "npm run dev --workspace=apps/frontend",
+    "check:backend": "node --check apps/backend/index.js && node --check apps/backend/config.js && node --check apps/backend/routes/auth.js && node --check apps/backend/routes/calculadoras.js && node --check apps/backend/seedAdmin.js",
+    "install:all": "npm install"
   }
 }

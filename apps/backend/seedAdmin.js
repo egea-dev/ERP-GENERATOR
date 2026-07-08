@@ -1,44 +1,47 @@
 const bcrypt = require('bcryptjs');
 const { Pool } = require('pg');
+const { isProd } = require('./config');
 
 async function seedAdminUser() {
+    const email = process.env.ADMIN_EMAIL;
+    const password = process.env.ADMIN_PASSWORD;
+    const fullName = process.env.ADMIN_FULL_NAME || 'Administrador';
+
+    if (!email || !password) {
+        if (!isProd) {
+            console.log('[SEED] ADMIN_EMAIL/ADMIN_PASSWORD no configurados. Se omite seed de administrador.');
+        }
+        return;
+    }
+
+    if (password.length < 12) {
+        throw new Error('ADMIN_PASSWORD must have at least 12 characters');
+    }
+
     const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
     try {
-        const result = await pool.query('SELECT id FROM users WHERE email = $1', ['admin@egeadev.cloud']);
+        const passwordHash = await bcrypt.hash(password, 12);
+        const userResult = await pool.query(
+            `INSERT INTO users (email, password_hash, full_name)
+             VALUES ($1, $2, $3)
+             ON CONFLICT (email) DO UPDATE SET full_name = EXCLUDED.full_name
+             RETURNING id, email`,
+            [email, passwordHash, fullName]
+        );
 
-        const passwordHash = await bcrypt.hash('Admin123!', 10);
+        const user = userResult.rows[0];
+        await pool.query(
+            `INSERT INTO user_roles (user_id, role)
+             VALUES ($1, 'admin')
+             ON CONFLICT (user_id) DO UPDATE SET role = 'admin'`,
+            [user.id]
+        );
 
-        if (result.rows.length === 0) {
-            const userRes = await pool.query(
-                'INSERT INTO users (email, password_hash, full_name) VALUES ($1, $2, $3) RETURNING id',
-                ['admin@egeadev.cloud', passwordHash, 'Administrador']
-            );
-
-            const userId = userRes.rows[0].id;
-
-            await pool.query(
-                'INSERT INTO user_roles (user_id, role) VALUES ($1, $2)',
-                [userId, 'admin']
-            );
-
-            console.log('[SEED] Admin user created: admin@egeadev.cloud');
-        } else {
-            await pool.query(
-                'UPDATE users SET password_hash = $1 WHERE email = $2',
-                [passwordHash, 'admin@egeadev.cloud']
-            );
-
-            await pool.query(
-                `INSERT INTO user_roles (user_id, role) VALUES ($1, 'admin')
-                 ON CONFLICT (user_id) DO UPDATE SET role = 'admin'`,
-                [result.rows[0].id]
-            );
-
-            console.log('[SEED] Admin user password reset to: Admin123!');
-        }
+        console.log(`[SEED] Admin user ensured: ${user.email}`);
     } catch (err) {
-        console.error('[SEED] Error creating admin user:', err.message);
+        console.error('[SEED] Error ensuring admin user:', err.message);
+        throw err;
     } finally {
         await pool.end();
     }
